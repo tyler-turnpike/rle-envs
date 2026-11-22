@@ -1,0 +1,2250 @@
+[?2004hroot@43aa687396e6:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@43aa687396e6:/app# clear
+[?2004l[H[J[3J[?2004hroot@43aa687396e6:/app# pwd && ls -la && cat docs/proration.md
+[?2004l/app
+total 24
+drwxr-xr-x 1 root root 4096 Nov 22 14:58 .
+drwxr-xr-x 1 root root 4096 Nov 22 17:00 ..
+drwxr-xr-x 2 root root 4096 Nov 22 16:57 billing
+drwxr-xr-x 2 root root 4096 Nov 22 16:57 data
+drwxr-xr-x 2 root root 4096 Nov 22 16:57 docs
+drwxr-xr-x 3 root root 4096 Nov 22 16:57 tests
+# Proration rules (finance sign-off, rev. 4)
+
+These are the rules the billing engine must follow when a subscription changes
+plan part-way through a billing cycle. Amounts are integers in minor units
+(cents for USD).
+
+## 1. Billing cycles
+
+A subscription has an **anchor date**: the day it was first billed. Monthly
+plans renew every calendar month, annual plans every twelve calendar months.
+
+Renewal *k* is the anchor moved forward by *k* (monthly) or *12k* (annual)
+calendar months. If the target month does not have the anchor's day of month,
+the renewal falls on the **last day of that month**. Every renewal is computed
+from the original anchor, never from the previous renewal, so a cycle that was
+shortened by a short month returns to the anchor day afterwards.
+
+| anchor     | interval | renewals                                         |
+|------------|----------|--------------------------------------------------|
+| 2026-01-31 | month    | 2026-02-28, 2026-03-31, 2026-04-30, 2026-05-31 … |
+| 2028-01-30 | month    | 2028-02-29, 2028-03-30, 2028-04-30 …             |
+| 2024-02-29 | year     | 2025-02-28, 2026-02-28, 2027-02-28, 2028-02-29 … |
+
+The cycle containing a date *d* is the half-open interval `[start, end)` where
+`start` is the latest renewal (or the anchor) on or before *d* and `end` is the
+next renewal. A change made on a renewal date belongs to the cycle that starts
+that day.
+
+## 2. Credit for the old plan
+
+`period_days = end - start` and `remaining_days = end - change_date`, both in
+whole days. The credit is
+
+    credit = round_half_even(old_price * remaining_days / period_days)
+
+where `old_price` is the old plan's price **in force on the cycle start** (that
+is what the customer was billed). Rounding is half-to-even to a whole minor
+unit, applied once to the exact rational result.
+
+## 3. Charge for the new plan
+
+* **Same interval** (month to month, year to year): the customer keeps the
+  same anchor and pays for the rest of the current cycle:
+  `charge = round_half_even(new_price * remaining_days / period_days)`, with
+  `new_price` in force on the change date. The next renewal stays `end`.
+* **Different interval** (month to year or year to month): the subscription is
+  re-anchored on the change date. The customer pays the new plan's full price
+  in force on the change date, the new anchor is the change date and the next
+  renewal is one new-interval later (computed with the rule in section 1).
+
+## 4. Invoice
+
+The preview has a negative credit line and a positive charge line. The total
+is `charge - credit`; a negative total is carried forward as account credit.
+[?2004hroot@43aa687396e6:/app# find billing tests -maxdepth 3 -type f | sort
+[?2004lbilling/__init__.py
+billing/__main__.py
+billing/calendar.py
+billing/catalog.py
+billing/invoice.py
+billing/proration.py
+tests/fixtures/plan_changes.json
+tests/test_calendar.py
+tests/test_proration.py
+[?2004hroot@43aa687396e6:/app# python -m unittest discover -s tests
+[?2004l.F.F.F.F.F.....FFFFFFFFF
+======================================================================
+FAIL: test_leap_years (test_calendar.AddMonthsTest.test_leap_years)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_calendar.py", line 23, in test_leap_years
+    self.assertEqual(add_months(date(2028, 1, 30), 1), date(2028, 2, 29))
+AssertionError: datetime.date(2028, 2, 28) != datetime.date(2028, 2, 29)
+
+======================================================================
+FAIL: test_month_end_anchor_clamps_then_returns (test_calendar.AddMonthsTest.test_month_end_anchor_clamps_then_returns)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_calendar.py", line 19, in test_month_end_anchor_clamps_then_returns
+    self.assertEqual(got, [date(2026, 2, 28), date(2026, 3, 31),
+AssertionError: Lists differ: [date[42 chars], 3, 28), datetime.date(2026, 4, 28), datetime[14 chars] 28)] != [date[42 chars], 3, 31), datetime.date(2026, 4, 30), datetime[14 chars] 31)]
+
+First differing element 1:
+datetime.date(2026, 3, 28)
+datetime.date(2026, 3, 31)
+
+  [datetime.date(2026, 2, 28),
+-  datetime.date(2026, 3, 28),
+?                         ^^
+
++  datetime.date(2026, 3, 31),
+?                         ^^
+
+-  datetime.date(2026, 4, 28),
+?                         ^^
+
++  datetime.date(2026, 4, 30),
+?                         ^^
+
+-  datetime.date(2026, 5, 28)]
+?                         ^^
+
++  datetime.date(2026, 5, 31)]
+?                         ^^
+
+
+======================================================================
+FAIL: test_annual (test_calendar.CycleBoundsTest.test_annual)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_calendar.py", line 51, in test_annual
+    self.assertEqual(cycle_bounds(date(2024, 2, 29), date(2027, 11, 2), "year"),
+AssertionError: Tuples differ: (datetime.date(2027, 2, 28), datetime.date(2028, 2, 28)) != (datetime.date(2027, 2, 28), datetime.date(2028, 2, 29))
+
+First differing element 1:
+datetime.date(2028, 2, 28)
+datetime.date(2028, 2, 29)
+
+- (datetime.date(2027, 2, 28), datetime.date(2028, 2, 28))
+?                                                      ^
+
++ (datetime.date(2027, 2, 28), datetime.date(2028, 2, 29))
+?                                                      ^
+
+
+======================================================================
+FAIL: test_iter_cycles_is_contiguous (test_calendar.CycleBoundsTest.test_iter_cycles_is_contiguous)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_calendar.py", line 59, in test_iter_cycles_is_contiguous
+    self.assertEqual(cycles[-1], (date(2026, 5, 31), date(2026, 6, 30)))
+AssertionError: Tuples differ: (datetime.date(2026, 5, 28), datetime.date(2026, 6, 28)) != (datetime.date(2026, 5, 31), datetime.date(2026, 6, 30))
+
+First differing element 0:
+datetime.date(2026, 5, 28)
+datetime.date(2026, 5, 31)
+
+- (datetime.date(2026, 5, 28), datetime.date(2026, 6, 28))
+?                         ^^                          ^^
+
++ (datetime.date(2026, 5, 31), datetime.date(2026, 6, 30))
+?                         ^^                          ^^
+
+
+======================================================================
+FAIL: test_month_end_anchor (test_calendar.CycleBoundsTest.test_month_end_anchor)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_calendar.py", line 45, in test_month_end_anchor
+    self.assertEqual(cycle_bounds(anchor, date(2026, 2, 15), "month"),
+AssertionError: Tuples differ: (datetime.date(2026, 1, 28), datetime.date(2026, 2, 28)) != (datetime.date(2026, 1, 31), datetime.date(2026, 2, 28))
+
+First differing element 0:
+datetime.date(2026, 1, 28)
+datetime.date(2026, 1, 31)
+
+- (datetime.date(2026, 1, 28), datetime.date(2026, 2, 28))
+?                         ^^
+
++ (datetime.date(2026, 1, 31), datetime.date(2026, 2, 28))
+?                         ^^
+
+
+======================================================================
+FAIL: test_worked_examples (test_proration.WorkedExamplesTest.test_worked_examples) (case='month-end-anchor-short-month')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_proration.py", line 30, in test_worked_examples
+    self.assertEqual((got.period_start.isoformat(), got.period_end.isoformat()),
+AssertionError: Tuples differ: ('2026-01-28', '2026-02-28') != ('2026-01-31', '2026-02-28')
+
+First differing element 0:
+'2026-01-28'
+'2026-01-31'
+
+- ('2026-01-28', '2026-02-28')
+?           ^^
+
++ ('2026-01-31', '2026-02-28')
+?           ^^
+
+
+======================================================================
+FAIL: test_worked_examples (test_proration.WorkedExamplesTest.test_worked_examples) (case='month-end-anchor-after-short-month')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_proration.py", line 30, in test_worked_examples
+    self.assertEqual((got.period_start.isoformat(), got.period_end.isoformat()),
+AssertionError: Tuples differ: ('2026-02-28', '2026-03-28') != ('2026-02-28', '2026-03-31')
+
+First differing element 1:
+'2026-03-28'
+'2026-03-31'
+
+- ('2026-02-28', '2026-03-28')
+?                         ^^
+
++ ('2026-02-28', '2026-03-31')
+?                         ^^
+
+
+======================================================================
+FAIL: test_worked_examples (test_proration.WorkedExamplesTest.test_worked_examples) (case='leap-day-renewal')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_proration.py", line 30, in test_worked_examples
+    self.assertEqual((got.period_start.isoformat(), got.period_end.isoformat()),
+AssertionError: Tuples differ: ('2028-02-28', '2028-03-28') != ('2028-02-29', '2028-03-30')
+
+First differing element 0:
+'2028-02-28'
+'2028-02-29'
+
+- ('2028-02-28', '2028-03-28')
+?            ^            ^^
+
++ ('2028-02-29', '2028-03-30')
+?            ^            ^^
+
+
+======================================================================
+FAIL: test_worked_examples (test_proration.WorkedExamplesTest.test_worked_examples) (case='annual-leap-anchor')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_proration.py", line 30, in test_worked_examples
+    self.assertEqual((got.period_start.isoformat(), got.period_end.isoformat()),
+AssertionError: Tuples differ: ('2027-02-28', '2028-02-28') != ('2027-02-28', '2028-02-29')
+
+First differing element 1:
+'2028-02-28'
+'2028-02-29'
+
+- ('2027-02-28', '2028-02-28')
+?                          ^
+
++ ('2027-02-28', '2028-02-29')
+?                          ^
+
+
+======================================================================
+FAIL: test_worked_examples (test_proration.WorkedExamplesTest.test_worked_examples) (case='annual-to-monthly-reanchor')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_proration.py", line 30, in test_worked_examples
+    self.assertEqual((got.period_start.isoformat(), got.period_end.isoformat()),
+AssertionError: Tuples differ: ('2025-06-30', '2026-06-28') != ('2025-06-30', '2026-06-30')
+
+First differing element 1:
+'2026-06-28'
+'2026-06-30'
+
+- ('2025-06-30', '2026-06-28')
+?                         ^^
+
++ ('2025-06-30', '2026-06-30')
+?                         ^^
+
+
+======================================================================
+FAIL: test_worked_examples (test_proration.WorkedExamplesTest.test_worked_examples) (case='price-change-inside-cycle')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_proration.py", line 32, in test_worked_examples
+    self.assertEqual(got.credit, exp["credit"])
+AssertionError: 5450 != 4790
+
+======================================================================
+FAIL: test_worked_examples (test_proration.WorkedExamplesTest.test_worked_examples) (case='change-on-anchor-day')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_proration.py", line 30, in test_worked_examples
+    self.assertEqual((got.period_start.isoformat(), got.period_end.isoformat()),
+AssertionError: Tuples differ: ('2026-03-31', '2026-04-28') != ('2026-03-31', '2026-04-30')
+
+First differing element 1:
+'2026-04-28'
+'2026-04-30'
+
+- ('2026-03-31', '2026-04-28')
+?                         ^^
+
++ ('2026-03-31', '2026-04-30')
+?                         ^^
+
+
+======================================================================
+FAIL: test_worked_examples (test_proration.WorkedExamplesTest.test_worked_examples) (case='monthly-to-annual')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_proration.py", line 30, in test_worked_examples
+    self.assertEqual((got.period_start.isoformat(), got.period_end.isoformat()),
+AssertionError: Tuples differ: ('2026-01-28', '2026-02-28') != ('2026-01-30', '2026-02-28')
+
+First differing element 0:
+'2026-01-28'
+'2026-01-30'
+
+- ('2026-01-28', '2026-02-28')
+?           ^^
+
++ ('2026-01-30', '2026-02-28')
+?           ^^
+
+
+======================================================================
+FAIL: test_worked_examples (test_proration.WorkedExamplesTest.test_worked_examples) (case='downgrade-carries-credit')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/app/tests/test_proration.py", line 30, in test_worked_examples
+    self.assertEqual((got.period_start.isoformat(), got.period_end.isoformat()),
+AssertionError: Tuples differ: ('2026-03-28', '2026-04-28') != ('2026-03-31', '2026-04-30')
+
+First differing element 0:
+'2026-03-28'
+'2026-03-31'
+
+- ('2026-03-28', '2026-04-28')
+?           ^^            ^^
+
++ ('2026-03-31', '2026-04-30')
+?           ^^            ^^
+
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.005s
+
+FAILED (failures=14)
+[?2004hroot@43aa687396e6:/app# cat billing/calendar.py billing/proration.py
+[?2004l"""Billing-cycle calendar arithmetic.
+
+Subscriptions bill on an *anchor* date. Monthly plans renew every month on the
+anchor's day of month, annual plans every twelve months. See
+docs/proration.md for the rules finance signed off on.
+"""
+from __future__ import annotations
+
+import calendar as _stdcal
+from datetime import date, timedelta
+from typing import Iterator, Tuple
+
+INTERVAL_MONTHS = {"month": 1, "year": 12}
+
+
+def interval_months(interval: str) -> int:
+    try:
+        return INTERVAL_MONTHS[interval]
+    except KeyError:
+        raise ValueError(f"unknown billing interval: {interval!r}") from None
+
+
+def days_in_month(year: int, month: int) -> int:
+    return _stdcal.monthrange(year, month)[1]
+
+
+def is_leap(year: int) -> bool:
+    return _stdcal.isleap(year)
+
+
+def add_months(anchor: date, months: int) -> date:
+    """Move ``anchor`` forward by ``months`` calendar months."""
+    total = anchor.month - 1 + months
+    year = anchor.year + total // 12
+    month = total % 12 + 1
+    # Not every month has a 29th/30th/31st, so stay on a day that always exists.
+    day = min(anchor.day, 28)
+    return date(year, month, day)
+
+
+def cycle_bounds(anchor: date, on: date, interval: str) -> Tuple[date, date]:
+    """Return ``(start, end)`` of the billing cycle containing ``on``.
+
+    ``start`` is inclusive and ``end`` is exclusive (the next renewal date).
+    """
+    if on < anchor:
+        raise ValueError(f"{on} is before the subscription anchor {anchor}")
+    step = interval_months(interval)
+    start = anchor
+    end = add_months(start, step)
+    while end <= on:
+        start = end
+        end = add_months(start, step)
+    return start, end
+
+
+def cycle_length_days(anchor: date, on: date, interval: str) -> int:
+    if interval == "year":
+        return 365
+    return 30
+
+
+def iter_cycles(anchor: date, until: date, interval: str) -> Iterator[Tuple[date, date]]:
+    """Yield every cycle from the anchor up to and including the one containing ``until``."""
+    start, end = cycle_bounds(anchor, anchor, interval)
+    while start <= until:
+        yield start, end
+        start, end = cycle_bounds(anchor, end, interval)
+
+
+def days_between(a: date, b: date) -> int:
+    return (b - a).days
+
+
+def parse_date(text: str) -> date:
+    return date.fromisoformat(text)
+
+
+def end_of_day(d: date) -> date:
+    return d + timedelta(days=1)
+"""Mid-cycle plan changes.
+
+When a customer switches plan part-way through a billing cycle we credit the
+unused part of what they already paid for and charge for the new plan. The
+rules are in docs/proration.md.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+from decimal import ROUND_HALF_EVEN, Decimal
+from typing import List
+
+from .calendar import add_months, cycle_bounds, cycle_length_days, days_between
+from .catalog import Catalog
+
+
+@dataclass(frozen=True)
+class Subscription:
+    sub_id: str
+    customer: str
+    plan_id: str
+    anchor: date
+
+
+@dataclass(frozen=True)
+class Line:
+    kind: str          # "credit" or "charge"
+    plan_id: str
+    amount: int        # minor units; credits are negative
+    period_start: date
+    period_end: date
+    description: str
+
+
+@dataclass
+class Proration:
+    sub_id: str
+    change_at: date
+    period_start: date
+    period_end: date
+    credit: int        # positive number of minor units credited back
+    charge: int        # minor units charged for the new plan
+    new_anchor: date
+    next_renewal: date
+    lines: List[Line] = field(default_factory=list)
+
+    @property
+    def total(self) -> int:
+        return self.charge - self.credit
+
+
+def portion(amount: int, numerator: int, denominator: int) -> int:
+    """``amount * numerator / denominator`` rounded half-to-even to a whole minor unit."""
+    if denominator <= 0:
+        raise ValueError("denominator must be positive")
+    if not 0 <= numerator <= denominator:
+        raise ValueError(f"fraction {numerator}/{denominator} out of range")
+    exact = Decimal(amount) * Decimal(numerator) / Decimal(denominator)
+    return int(exact.quantize(Decimal(1), rounding=ROUND_HALF_EVEN))
+
+
+def prorate_change(sub: Subscription, new_plan_id: str, change_at: date,
+                   catalog: Catalog) -> Proration:
+    """Compute the credit and charge for moving ``sub`` to ``new_plan_id`` on ``change_at``."""
+    if new_plan_id == sub.plan_id:
+        raise ValueError("subscription is already on that plan")
+    old = catalog.plan(sub.plan_id)
+    new = catalog.plan(new_plan_id)
+    if old.currency != new.currency:
+        raise ValueError("cross-currency plan changes are not supported")
+
+    start, end = cycle_bounds(sub.anchor, change_at, old.interval)
+    period_days = cycle_length_days(sub.anchor, change_at, old.interval)
+    remaining = days_between(change_at, end)
+
+    credit = portion(catalog.price(old.plan_id, change_at), remaining, period_days)
+    charge = portion(catalog.price(new.plan_id, change_at), remaining, period_days)
+    new_anchor = sub.anchor
+    next_renewal = end
+
+    lines = [
+        Line("credit", old.plan_id, -credit, change_at, end,
+             f"Unused time on {old.name} ({change_at} to {end})"),
+        Line("charge", new.plan_id, charge, change_at, next_renewal,
+             f"Remaining time on {new.name} ({change_at} to {next_renewal})"),
+    ]
+    return Proration(sub.sub_id, change_at, start, end, credit, charge,
+                     new_anchor, next_renewal, lines)
+
+
+def renewal_after(sub: Subscription, on: date, catalog: Catalog) -> date:
+    """Next renewal date strictly after ``on`` for an unchanged subscription."""
+    plan = catalog.plan(sub.plan_id)
+    _, end = cycle_bounds(sub.anchor, on, plan.interval)
+    return end
+
+
+def renewal_schedule(sub: Subscription, count: int, catalog: Catalog) -> List[date]:
+    plan = catalog.plan(sub.plan_id)
+    return [add_months(sub.anchor, plan.months * k) for k in range(1, count + 1)]
+[?2004hroot@43aa687396e6:/app# cat billing/catalog.py billing/invoice.py billing/__main__.py billing/__init__.py
+[?2004l"""Plan catalog: plan definitions and their price history."""
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+from .calendar import interval_months, parse_date
+
+DEFAULT_CATALOG = Path(__file__).resolve().parent.parent / "data" / "catalog.json"
+
+
+@dataclass(frozen=True)
+class Plan:
+    plan_id: str
+    name: str
+    interval: str
+    currency: str
+    # (effective_from, unit price in minor units), sorted by date
+    prices: Tuple[Tuple[date, int], ...] = field(default_factory=tuple)
+
+    @property
+    def months(self) -> int:
+        return interval_months(self.interval)
+
+    def price_on(self, on: date) -> int:
+        """Price in force on ``on`` (the latest entry whose start is <= on)."""
+        current = None
+        for start, cents in self.prices:
+            if start <= on:
+                current = cents
+            else:
+                break
+        if current is None:
+            raise LookupError(f"plan {self.plan_id} has no price on {on}")
+        return current
+
+
+class Catalog:
+    def __init__(self, plans: Dict[str, Plan]):
+        self._plans = dict(plans)
+
+    def plan(self, plan_id: str) -> Plan:
+        try:
+            return self._plans[plan_id]
+        except KeyError:
+            raise KeyError(f"unknown plan: {plan_id}") from None
+
+    def price(self, plan_id: str, on: date) -> int:
+        return self.plan(plan_id).price_on(on)
+
+    def plan_ids(self) -> List[str]:
+        return sorted(self._plans)
+
+    def __contains__(self, plan_id: str) -> bool:
+        return plan_id in self._plans
+
+
+def _plan_from_dict(raw: dict) -> Plan:
+    history = sorted(
+        (parse_date(p["effective_from"]), int(p["unit_amount"])) for p in raw["prices"]
+    )
+    if not history:
+        raise ValueError(f"plan {raw['id']} has an empty price history")
+    if raw["interval"] not in ("month", "year"):
+        raise ValueError(f"plan {raw['id']} has unknown interval {raw['interval']!r}")
+    return Plan(
+        plan_id=raw["id"],
+        name=raw.get("name", raw["id"]),
+        interval=raw["interval"],
+        currency=raw.get("currency", "USD"),
+        prices=tuple(history),
+    )
+
+
+def load_catalog(path: Path | str = DEFAULT_CATALOG) -> Catalog:
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    plans = {}
+    for raw in doc["plans"]:
+        plan = _plan_from_dict(raw)
+        if plan.plan_id in plans:
+            raise ValueError(f"duplicate plan id {plan.plan_id}")
+        plans[plan.plan_id] = plan
+    return Catalog(plans)
+"""Invoice previews for plan changes."""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+from typing import Dict, List
+
+from .proration import Line, Proration
+
+CURRENCY_EXPONENT = {"USD": 2, "EUR": 2, "GBP": 2, "JPY": 0}
+
+
+@dataclass
+class InvoicePreview:
+    sub_id: str
+    currency: str
+    issued_on: date
+    lines: List[Line] = field(default_factory=list)
+    balance_before: int = 0
+
+    @property
+    def subtotal(self) -> int:
+        return sum(line.amount for line in self.lines)
+
+    @property
+    def amount_due(self) -> int:
+        """What the customer pays now; never negative."""
+        return max(0, self.subtotal + self.balance_before)
+
+    @property
+    def credit_carried(self) -> int:
+        """Credit left on the account after this invoice (positive number)."""
+        return max(0, -(self.subtotal + self.balance_before))
+
+
+def build_preview(proration: Proration, currency: str, balance_before: int = 0) -> InvoicePreview:
+    return InvoicePreview(
+        sub_id=proration.sub_id,
+        currency=currency,
+        issued_on=proration.change_at,
+        lines=list(proration.lines),
+        balance_before=balance_before,
+    )
+
+
+def format_amount(minor: int, currency: str) -> str:
+    exp = CURRENCY_EXPONENT.get(currency, 2)
+    sign = "-" if minor < 0 else ""
+    minor = abs(minor)
+    if exp == 0:
+        return f"{sign}{minor} {currency}"
+    major, frac = divmod(minor, 10 ** exp)
+    return f"{sign}{major:,}.{frac:0{exp}d} {currency}"
+
+
+def to_dict(preview: InvoicePreview) -> Dict:
+    return {
+        "subscription": preview.sub_id,
+        "currency": preview.currency,
+        "issued_on": preview.issued_on.isoformat(),
+        "lines": [
+            {
+                "kind": line.kind,
+                "plan": line.plan_id,
+                "amount": line.amount,
+                "period_start": line.period_start.isoformat(),
+                "period_end": line.period_end.isoformat(),
+                "description": line.description,
+            }
+            for line in preview.lines
+        ],
+        "subtotal": preview.subtotal,
+        "balance_before": preview.balance_before,
+        "amount_due": preview.amount_due,
+        "credit_carried": preview.credit_carried,
+    }
+
+
+def render_text(preview: InvoicePreview) -> str:
+    out = [f"Invoice preview for {preview.sub_id} ({preview.issued_on})"]
+    for line in preview.lines:
+        out.append(f"  {line.description:<60} {format_amount(line.amount, preview.currency):>16}")
+    out.append(f"  {'Subtotal':<60} {format_amount(preview.subtotal, preview.currency):>16}")
+    if preview.balance_before:
+        out.append(f"  {'Balance before':<60} {format_amount(preview.balance_before, preview.currency):>16}")
+    out.append(f"  {'Amount due':<60} {format_amount(preview.amount_due, preview.currency):>16}")
+    if preview.credit_carried:
+        out.append(f"  {'Credit carried forward':<60} {format_amount(preview.credit_carried, preview.currency):>16}")
+    return "\n".join(out)
+"""Command line: preview the invoice for a plan change.
+
+    python -m billing preview --sub data/subscriptions.json --id sub_1042 \
+        --to pro-monthly --at 2026-01-31 [--json]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+
+from .calendar import parse_date
+from .catalog import DEFAULT_CATALOG, load_catalog
+from .invoice import build_preview, render_text, to_dict
+from .proration import Subscription, prorate_change
+
+
+def _load_subscription(path: str, sub_id: str) -> tuple[Subscription, int]:
+    with open(path, encoding="utf-8") as fh:
+        rows = json.load(fh)["subscriptions"]
+    for row in rows:
+        if row["id"] == sub_id:
+            sub = Subscription(row["id"], row["customer"], row["plan"], parse_date(row["anchor"]))
+            return sub, int(row.get("balance", 0))
+    raise SystemExit(f"no subscription {sub_id} in {path}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="billing")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    p = sub.add_parser("preview", help="preview a mid-cycle plan change")
+    p.add_argument("--sub", required=True, help="subscriptions JSON file")
+    p.add_argument("--id", required=True, help="subscription id")
+    p.add_argument("--to", required=True, help="new plan id")
+    p.add_argument("--at", required=True, help="change date, YYYY-MM-DD")
+    p.add_argument("--catalog", default=str(DEFAULT_CATALOG))
+    p.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
+
+    catalog = load_catalog(args.catalog)
+    subscription, balance = _load_subscription(args.sub, args.id)
+    proration = prorate_change(subscription, args.to, parse_date(args.at), catalog)
+    currency = catalog.plan(args.to).currency
+    preview = build_preview(proration, currency, balance_before=balance)
+    if args.json:
+        json.dump(to_dict(preview), sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print(render_text(preview))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+"""Subscription billing engine: catalog, cycle calendar, proration, invoice previews."""
+from .calendar import add_months, cycle_bounds
+from .catalog import Catalog, Plan, load_catalog
+from .proration import Proration, Subscription, prorate_change
+
+__all__ = ["add_months", "cycle_bounds", "Catalog", "Plan", "load_catalog",
+           "Proration", "Subscription", "prorate_change"]
+[?2004hroot@43aa687396e6:/app# cat tests/test_calendar.py tests/test_proration.py
+[?2004limport unittest
+from datetime import date
+
+from billing.calendar import add_months, cycle_bounds, days_in_month, iter_cycles
+
+
+class AddMonthsTest(unittest.TestCase):
+    def test_mid_month_anchor(self):
+        self.assertEqual(add_months(date(2025, 3, 14), 1), date(2025, 4, 14))
+        self.assertEqual(add_months(date(2025, 3, 14), 10), date(2026, 1, 14))
+
+    def test_year_rollover(self):
+        self.assertEqual(add_months(date(2025, 11, 5), 3), date(2026, 2, 5))
+        self.assertEqual(add_months(date(2025, 12, 1), 12), date(2026, 12, 1))
+
+    def test_month_end_anchor_clamps_then_returns(self):
+        anchor = date(2026, 1, 31)
+        got = [add_months(anchor, k) for k in range(1, 5)]
+        self.assertEqual(got, [date(2026, 2, 28), date(2026, 3, 31),
+                               date(2026, 4, 30), date(2026, 5, 31)])
+
+    def test_leap_years(self):
+        self.assertEqual(add_months(date(2028, 1, 30), 1), date(2028, 2, 29))
+        anchor = date(2024, 2, 29)
+        got = [add_months(anchor, 12 * k) for k in range(1, 5)]
+        self.assertEqual(got, [date(2025, 2, 28), date(2026, 2, 28),
+                               date(2027, 2, 28), date(2028, 2, 29)])
+
+    def test_days_in_month(self):
+        self.assertEqual(days_in_month(2026, 2), 28)
+        self.assertEqual(days_in_month(2028, 2), 29)
+
+
+class CycleBoundsTest(unittest.TestCase):
+    def test_mid_month(self):
+        self.assertEqual(cycle_bounds(date(2025, 3, 14), date(2026, 6, 20), "month"),
+                         (date(2026, 6, 14), date(2026, 7, 14)))
+
+    def test_change_on_renewal_day_starts_new_cycle(self):
+        self.assertEqual(cycle_bounds(date(2025, 3, 14), date(2026, 6, 14), "month"),
+                         (date(2026, 6, 14), date(2026, 7, 14)))
+
+    def test_month_end_anchor(self):
+        anchor = date(2024, 1, 31)
+        self.assertEqual(cycle_bounds(anchor, date(2026, 2, 15), "month"),
+                         (date(2026, 1, 31), date(2026, 2, 28)))
+        self.assertEqual(cycle_bounds(anchor, date(2026, 3, 10), "month"),
+                         (date(2026, 2, 28), date(2026, 3, 31)))
+
+    def test_annual(self):
+        self.assertEqual(cycle_bounds(date(2024, 2, 29), date(2027, 11, 2), "year"),
+                         (date(2027, 2, 28), date(2028, 2, 29)))
+
+    def test_iter_cycles_is_contiguous(self):
+        cycles = list(iter_cycles(date(2026, 1, 31), date(2026, 6, 1), "month"))
+        self.assertEqual(cycles[0][0], date(2026, 1, 31))
+        for (s1, e1), (s2, _) in zip(cycles, cycles[1:]):
+            self.assertEqual(e1, s2)
+        self.assertEqual(cycles[-1], (date(2026, 5, 31), date(2026, 6, 30)))
+
+
+if __name__ == "__main__":
+    unittest.main()
+import io
+import json
+import unittest
+from contextlib import redirect_stdout
+from datetime import date
+from pathlib import Path
+
+from billing import __main__ as cli
+from billing.catalog import load_catalog
+from billing.invoice import build_preview, format_amount, to_dict
+from billing.proration import Subscription, portion, prorate_change
+
+HERE = Path(__file__).resolve().parent
+APP = HERE.parent
+CASES = json.loads((HERE / "fixtures" / "plan_changes.json").read_text())["cases"]
+
+
+class WorkedExamplesTest(unittest.TestCase):
+    """Finance's worked examples (docs/proration.md, rev. 4)."""
+
+    def setUp(self):
+        self.catalog = load_catalog(APP / "data" / "catalog.json")
+
+    def test_worked_examples(self):
+        for case in CASES:
+            with self.subTest(case=case["id"]):
+                sub = Subscription("sub_x", "cus_x", case["plan"], date.fromisoformat(case["anchor"]))
+                got = prorate_change(sub, case["to"], date.fromisoformat(case["at"]), self.catalog)
+                exp = case["expected"]
+                self.assertEqual((got.period_start.isoformat(), got.period_end.isoformat()),
+                                 (exp["period_start"], exp["period_end"]))
+                self.assertEqual(got.credit, exp["credit"])
+                self.assertEqual(got.charge, exp["charge"])
+                self.assertEqual(got.total, exp["total"])
+                self.assertEqual(got.new_anchor.isoformat(), exp["new_anchor"])
+                self.assertEqual(got.next_renewal.isoformat(), exp["next_renewal"])
+
+
+class PortionTest(unittest.TestCase):
+    def test_half_even(self):
+        self.assertEqual(portion(1, 1, 2), 0)
+        self.assertEqual(portion(3, 1, 2), 2)
+        self.assertEqual(portion(4900, 15, 28), 2625)
+
+    def test_rejects_bad_fraction(self):
+        with self.assertRaises(ValueError):
+            portion(100, 5, 4)
+
+
+class InvoiceTest(unittest.TestCase):
+    def setUp(self):
+        self.catalog = load_catalog(APP / "data" / "catalog.json")
+
+    def test_downgrade_carries_credit(self):
+        sub = Subscription("sub_9", "cus_9", "team-monthly", date(2025, 3, 14))
+        pr = prorate_change(sub, "starter-monthly", date(2026, 6, 20), self.catalog)
+        preview = build_preview(pr, "USD")
+        self.assertEqual(preview.amount_due, 0)
+        self.assertEqual(preview.credit_carried, pr.credit - pr.charge)
+        self.assertEqual([l["kind"] for l in to_dict(preview)["lines"]], ["credit", "charge"])
+
+    def test_format_amount(self):
+        self.assertEqual(format_amount(123456, "USD"), "1,234.56 USD")
+        self.assertEqual(format_amount(-5, "USD"), "-0.05 USD")
+        self.assertEqual(format_amount(500, "JPY"), "500 JPY")
+
+    def test_cli_json_preview(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cli.main(["preview", "--sub", str(APP / "data" / "subscriptions.json"),
+                      "--id", "sub_1001", "--to", "pro-monthly", "--at", "2026-06-20",
+                      "--catalog", str(APP / "data" / "catalog.json"), "--json"])
+        doc = json.loads(buf.getvalue())
+        self.assertEqual(doc["subscription"], "sub_1001")
+        self.assertEqual(doc["subtotal"], 2960)
+        self.assertEqual(doc["amount_due"], 2960)
+
+
+if __name__ == "__main__":
+    unittest.main()
+[?2004hroot@43aa687396e6:/app# cat tests/fixtures/plan_changes.json && find data docs -type f -maxdepth 2 -print
+[?2004l{
+  "source": "finance worked examples for BILL-212 (rev. 4 rules)",
+  "cases": [
+    {
+      "id": "mid-month-upgrade",
+      "plan": "starter-monthly",
+      "anchor": "2025-03-14",
+      "to": "pro-monthly",
+      "at": "2026-06-20",
+      "expected": {
+        "period_start": "2026-06-14",
+        "period_end": "2026-07-14",
+        "credit": 960,
+        "charge": 3920,
+        "total": 2960,
+        "new_anchor": "2025-03-14",
+        "next_renewal": "2026-07-14"
+      }
+    },
+    {
+      "id": "month-end-anchor-short-month",
+      "plan": "pro-monthly",
+      "anchor": "2024-01-31",
+      "to": "team-monthly",
+      "at": "2026-02-15",
+      "expected": {
+        "period_start": "2026-01-31",
+        "period_end": "2026-02-28",
+        "credit": 2275,
+        "charge": 4596,
+        "total": 2321,
+        "new_anchor": "2024-01-31",
+        "next_renewal": "2026-02-28"
+      }
+    },
+    {
+      "id": "month-end-anchor-after-short-month",
+      "plan": "pro-monthly",
+      "anchor": "2024-01-31",
+      "to": "team-monthly",
+      "at": "2026-03-10",
+      "expected": {
+        "period_start": "2026-02-28",
+        "period_end": "2026-03-31",
+        "credit": 3319,
+        "charge": 6706,
+        "total": 3387,
+        "new_anchor": "2024-01-31",
+        "next_renewal": "2026-03-31"
+      }
+    },
+    {
+      "id": "leap-day-renewal",
+      "plan": "pro-monthly",
+      "anchor": "2028-01-30",
+      "to": "team-monthly",
+      "at": "2028-02-29",
+      "expected": {
+        "period_start": "2028-02-29",
+        "period_end": "2028-03-30",
+        "credit": 4900,
+        "charge": 10900,
+        "total": 6000,
+        "new_anchor": "2028-01-30",
+        "next_renewal": "2028-03-30"
+      }
+    },
+    {
+      "id": "annual-leap-anchor",
+      "plan": "team-annual",
+      "anchor": "2024-02-29",
+      "to": "pro-annual",
+      "at": "2027-11-02",
+      "expected": {
+        "period_start": "2027-02-28",
+        "period_end": "2028-02-29",
+        "credit": 35440,
+        "charge": 15932,
+        "total": -19508,
+        "new_anchor": "2024-02-29",
+        "next_renewal": "2028-02-29"
+      }
+    },
+    {
+      "id": "annual-to-monthly-reanchor",
+      "plan": "pro-annual",
+      "anchor": "2025-06-30",
+      "to": "pro-monthly",
+      "at": "2026-01-31",
+      "expected": {
+        "period_start": "2025-06-30",
+        "period_end": "2026-06-30",
+        "credit": 20137,
+        "charge": 4900,
+        "total": -15237,
+        "new_anchor": "2026-01-31",
+        "next_renewal": "2026-02-28"
+      }
+    },
+    {
+      "id": "price-change-inside-cycle",
+      "plan": "team-monthly",
+      "anchor": "2026-12-20",
+      "to": "pro-monthly",
+      "at": "2027-01-05",
+      "expected": {
+        "period_start": "2026-12-20",
+        "period_end": "2027-01-20",
+        "credit": 4790,
+        "charge": 2371,
+        "total": -2419,
+        "new_anchor": "2026-12-20",
+        "next_renewal": "2027-01-20"
+      }
+    },
+    {
+      "id": "change-on-anchor-day",
+      "plan": "starter-monthly",
+      "anchor": "2026-03-31",
+      "to": "team-monthly",
+      "at": "2026-03-31",
+      "expected": {
+        "period_start": "2026-03-31",
+        "period_end": "2026-04-30",
+        "credit": 1200,
+        "charge": 9900,
+        "total": 8700,
+        "new_anchor": "2026-03-31",
+        "next_renewal": "2026-04-30"
+      }
+    },
+    {
+      "id": "monthly-to-annual",
+      "plan": "starter-monthly",
+      "anchor": "2025-08-30",
+      "to": "starter-annual",
+      "at": "2026-02-27",
+      "expected": {
+        "period_start": "2026-01-30",
+        "period_end": "2026-02-28",
+        "credit": 41,
+        "charge": 12000,
+        "total": 11959,
+        "new_anchor": "2026-02-27",
+        "next_renewal": "2027-02-27"
+      }
+    },
+    {
+      "id": "downgrade-carries-credit",
+      "plan": "team-monthly",
+      "anchor": "2025-10-31",
+      "to": "starter-monthly",
+      "at": "2026-04-07",
+      "expected": {
+        "period_start": "2026-03-31",
+        "period_end": "2026-04-30",
+        "credit": 7590,
+        "charge": 920,
+        "total": -6670,
+        "new_anchor": "2025-10-31",
+        "next_renewal": "2026-04-30"
+      }
+    }
+  ]
+}find: warning: you have specified the global option -maxdepth after the argument -type, but global options are not positional, i.e., -maxdepth affects tests specified before it as well as those specified after it.  Please specify global options before other arguments.
+data/catalog.json
+data/subscriptions.json
+docs/proration.md
+[?2004hroot@43aa687396e6:/app# cat billing/proration.py
+[?2004l"""Mid-cycle plan changes.
+
+When a customer switches plan part-way through a billing cycle we credit the
+unused part of what they already paid for and charge for the new plan. The
+rules are in docs/proration.md.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+from decimal import ROUND_HALF_EVEN, Decimal
+from typing import List
+
+from .calendar import add_months, cycle_bounds, cycle_length_days, days_between
+from .catalog import Catalog
+
+
+@dataclass(frozen=True)
+class Subscription:
+    sub_id: str
+    customer: str
+    plan_id: str
+    anchor: date
+
+
+@dataclass(frozen=True)
+class Line:
+    kind: str          # "credit" or "charge"
+    plan_id: str
+    amount: int        # minor units; credits are negative
+    period_start: date
+    period_end: date
+    description: str
+
+
+@dataclass
+class Proration:
+    sub_id: str
+    change_at: date
+    period_start: date
+    period_end: date
+    credit: int        # positive number of minor units credited back
+    charge: int        # minor units charged for the new plan
+    new_anchor: date
+    next_renewal: date
+    lines: List[Line] = field(default_factory=list)
+
+    @property
+    def total(self) -> int:
+        return self.charge - self.credit
+
+
+def portion(amount: int, numerator: int, denominator: int) -> int:
+    """``amount * numerator / denominator`` rounded half-to-even to a whole minor unit."""
+    if denominator <= 0:
+        raise ValueError("denominator must be positive")
+    if not 0 <= numerator <= denominator:
+        raise ValueError(f"fraction {numerator}/{denominator} out of range")
+    exact = Decimal(amount) * Decimal(numerator) / Decimal(denominator)
+    return int(exact.quantize(Decimal(1), rounding=ROUND_HALF_EVEN))
+
+
+def prorate_change(sub: Subscription, new_plan_id: str, change_at: date,
+                   catalog: Catalog) -> Proration:
+    """Compute the credit and charge for moving ``sub`` to ``new_plan_id`` on ``change_at``."""
+    if new_plan_id == sub.plan_id:
+        raise ValueError("subscription is already on that plan")
+    old = catalog.plan(sub.plan_id)
+    new = catalog.plan(new_plan_id)
+    if old.currency != new.currency:
+        raise ValueError("cross-currency plan changes are not supported")
+
+    start, end = cycle_bounds(sub.anchor, change_at, old.interval)
+    period_days = cycle_length_days(sub.anchor, change_at, old.interval)
+    remaining = days_between(change_at, end)
+
+    credit = portion(catalog.price(old.plan_id, change_at), remaining, period_days)
+    charge = portion(catalog.price(new.plan_id, change_at), remaining, period_days)
+    new_anchor = sub.anchor
+    next_renewal = end
+
+    lines = [
+        Line("credit", old.plan_id, -credit, change_at, end,
+             f"Unused time on {old.name} ({change_at} to {end})"),
+        Line("charge", new.plan_id, charge, change_at, next_renewal,
+             f"Remaining time on {new.name} ({change_at} to {next_renewal})"),
+    ]
+    return Proration(sub.sub_id, change_at, start, end, credit, charge,
+                     new_anchor, next_renewal, lines)
+
+
+def renewal_after(sub: Subscription, on: date, catalog: Catalog) -> date:
+    """Next renewal date strictly after ``on`` for an unchanged subscription."""
+    plan = catalog.plan(sub.plan_id)
+    _, end = cycle_bounds(sub.anchor, on, plan.interval)
+    return end
+
+
+def renewal_schedule(sub: Subscription, count: int, catalog: Catalog) -> List[date]:
+    plan = catalog.plan(sub.plan_id)
+    return [add_months(sub.anchor, plan.months * k) for k in range(1, count + 1)]
+[?2004hroot@43aa687396e6:/app# cat tests/test_calendar.py tests/test_proration.py
+[?2004limport unittest
+from datetime import date
+
+from billing.calendar import add_months, cycle_bounds, days_in_month, iter_cycles
+
+
+class AddMonthsTest(unittest.TestCase):
+    def test_mid_month_anchor(self):
+        self.assertEqual(add_months(date(2025, 3, 14), 1), date(2025, 4, 14))
+        self.assertEqual(add_months(date(2025, 3, 14), 10), date(2026, 1, 14))
+
+    def test_year_rollover(self):
+        self.assertEqual(add_months(date(2025, 11, 5), 3), date(2026, 2, 5))
+        self.assertEqual(add_months(date(2025, 12, 1), 12), date(2026, 12, 1))
+
+    def test_month_end_anchor_clamps_then_returns(self):
+        anchor = date(2026, 1, 31)
+        got = [add_months(anchor, k) for k in range(1, 5)]
+        self.assertEqual(got, [date(2026, 2, 28), date(2026, 3, 31),
+                               date(2026, 4, 30), date(2026, 5, 31)])
+
+    def test_leap_years(self):
+        self.assertEqual(add_months(date(2028, 1, 30), 1), date(2028, 2, 29))
+        anchor = date(2024, 2, 29)
+        got = [add_months(anchor, 12 * k) for k in range(1, 5)]
+        self.assertEqual(got, [date(2025, 2, 28), date(2026, 2, 28),
+                               date(2027, 2, 28), date(2028, 2, 29)])
+
+    def test_days_in_month(self):
+        self.assertEqual(days_in_month(2026, 2), 28)
+        self.assertEqual(days_in_month(2028, 2), 29)
+
+
+class CycleBoundsTest(unittest.TestCase):
+    def test_mid_month(self):
+        self.assertEqual(cycle_bounds(date(2025, 3, 14), date(2026, 6, 20), "month"),
+                         (date(2026, 6, 14), date(2026, 7, 14)))
+
+    def test_change_on_renewal_day_starts_new_cycle(self):
+        self.assertEqual(cycle_bounds(date(2025, 3, 14), date(2026, 6, 14), "month"),
+                         (date(2026, 6, 14), date(2026, 7, 14)))
+
+    def test_month_end_anchor(self):
+        anchor = date(2024, 1, 31)
+        self.assertEqual(cycle_bounds(anchor, date(2026, 2, 15), "month"),
+                         (date(2026, 1, 31), date(2026, 2, 28)))
+        self.assertEqual(cycle_bounds(anchor, date(2026, 3, 10), "month"),
+                         (date(2026, 2, 28), date(2026, 3, 31)))
+
+    def test_annual(self):
+        self.assertEqual(cycle_bounds(date(2024, 2, 29), date(2027, 11, 2), "year"),
+                         (date(2027, 2, 28), date(2028, 2, 29)))
+
+    def test_iter_cycles_is_contiguous(self):
+        cycles = list(iter_cycles(date(2026, 1, 31), date(2026, 6, 1), "month"))
+        self.assertEqual(cycles[0][0], date(2026, 1, 31))
+        for (s1, e1), (s2, _) in zip(cycles, cycles[1:]):
+            self.assertEqual(e1, s2)
+        self.assertEqual(cycles[-1], (date(2026, 5, 31), date(2026, 6, 30)))
+
+
+if __name__ == "__main__":
+    unittest.main()
+import io
+import json
+import unittest
+from contextlib import redirect_stdout
+from datetime import date
+from pathlib import Path
+
+from billing import __main__ as cli
+from billing.catalog import load_catalog
+from billing.invoice import build_preview, format_amount, to_dict
+from billing.proration import Subscription, portion, prorate_change
+
+HERE = Path(__file__).resolve().parent
+APP = HERE.parent
+CASES = json.loads((HERE / "fixtures" / "plan_changes.json").read_text())["cases"]
+
+
+class WorkedExamplesTest(unittest.TestCase):
+    """Finance's worked examples (docs/proration.md, rev. 4)."""
+
+    def setUp(self):
+        self.catalog = load_catalog(APP / "data" / "catalog.json")
+
+    def test_worked_examples(self):
+        for case in CASES:
+            with self.subTest(case=case["id"]):
+                sub = Subscription("sub_x", "cus_x", case["plan"], date.fromisoformat(case["anchor"]))
+                got = prorate_change(sub, case["to"], date.fromisoformat(case["at"]), self.catalog)
+                exp = case["expected"]
+                self.assertEqual((got.period_start.isoformat(), got.period_end.isoformat()),
+                                 (exp["period_start"], exp["period_end"]))
+                self.assertEqual(got.credit, exp["credit"])
+                self.assertEqual(got.charge, exp["charge"])
+                self.assertEqual(got.total, exp["total"])
+                self.assertEqual(got.new_anchor.isoformat(), exp["new_anchor"])
+                self.assertEqual(got.next_renewal.isoformat(), exp["next_renewal"])
+
+
+class PortionTest(unittest.TestCase):
+    def test_half_even(self):
+        self.assertEqual(portion(1, 1, 2), 0)
+        self.assertEqual(portion(3, 1, 2), 2)
+        self.assertEqual(portion(4900, 15, 28), 2625)
+
+    def test_rejects_bad_fraction(self):
+        with self.assertRaises(ValueError):
+            portion(100, 5, 4)
+
+
+class InvoiceTest(unittest.TestCase):
+    def setUp(self):
+        self.catalog = load_catalog(APP / "data" / "catalog.json")
+
+    def test_downgrade_carries_credit(self):
+        sub = Subscription("sub_9", "cus_9", "team-monthly", date(2025, 3, 14))
+        pr = prorate_change(sub, "starter-monthly", date(2026, 6, 20), self.catalog)
+        preview = build_preview(pr, "USD")
+        self.assertEqual(preview.amount_due, 0)
+        self.assertEqual(preview.credit_carried, pr.credit - pr.charge)
+        self.assertEqual([l["kind"] for l in to_dict(preview)["lines"]], ["credit", "charge"])
+
+    def test_format_amount(self):
+        self.assertEqual(format_amount(123456, "USD"), "1,234.56 USD")
+        self.assertEqual(format_amount(-5, "USD"), "-0.05 USD")
+        self.assertEqual(format_amount(500, "JPY"), "500 JPY")
+
+    def test_cli_json_preview(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cli.main(["preview", "--sub", str(APP / "data" / "subscriptions.json"),
+                      "--id", "sub_1001", "--to", "pro-monthly", "--at", "2026-06-20",
+                      "--catalog", str(APP / "data" / "catalog.json"), "--json"])
+        doc = json.loads(buf.getvalue())
+        self.assertEqual(doc["subscription"], "sub_1001")
+        self.assertEqual(doc["subtotal"], 2960)
+        self.assertEqual(doc["amount_due"], 2960)
+
+
+if __name__ == "__main__":
+    unittest.main()
+[?2004hroot@43aa687396e6:/app# cat billing/invoice.py billing/catalog.py
+[?2004l"""Invoice previews for plan changes."""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+from typing import Dict, List
+
+from .proration import Line, Proration
+
+CURRENCY_EXPONENT = {"USD": 2, "EUR": 2, "GBP": 2, "JPY": 0}
+
+
+@dataclass
+class InvoicePreview:
+    sub_id: str
+    currency: str
+    issued_on: date
+    lines: List[Line] = field(default_factory=list)
+    balance_before: int = 0
+
+    @property
+    def subtotal(self) -> int:
+        return sum(line.amount for line in self.lines)
+
+    @property
+    def amount_due(self) -> int:
+        """What the customer pays now; never negative."""
+        return max(0, self.subtotal + self.balance_before)
+
+    @property
+    def credit_carried(self) -> int:
+        """Credit left on the account after this invoice (positive number)."""
+        return max(0, -(self.subtotal + self.balance_before))
+
+
+def build_preview(proration: Proration, currency: str, balance_before: int = 0) -> InvoicePreview:
+    return InvoicePreview(
+        sub_id=proration.sub_id,
+        currency=currency,
+        issued_on=proration.change_at,
+        lines=list(proration.lines),
+        balance_before=balance_before,
+    )
+
+
+def format_amount(minor: int, currency: str) -> str:
+    exp = CURRENCY_EXPONENT.get(currency, 2)
+    sign = "-" if minor < 0 else ""
+    minor = abs(minor)
+    if exp == 0:
+        return f"{sign}{minor} {currency}"
+    major, frac = divmod(minor, 10 ** exp)
+    return f"{sign}{major:,}.{frac:0{exp}d} {currency}"
+
+
+def to_dict(preview: InvoicePreview) -> Dict:
+    return {
+        "subscription": preview.sub_id,
+        "currency": preview.currency,
+        "issued_on": preview.issued_on.isoformat(),
+        "lines": [
+            {
+                "kind": line.kind,
+                "plan": line.plan_id,
+                "amount": line.amount,
+                "period_start": line.period_start.isoformat(),
+                "period_end": line.period_end.isoformat(),
+                "description": line.description,
+            }
+            for line in preview.lines
+        ],
+        "subtotal": preview.subtotal,
+        "balance_before": preview.balance_before,
+        "amount_due": preview.amount_due,
+        "credit_carried": preview.credit_carried,
+    }
+
+
+def render_text(preview: InvoicePreview) -> str:
+    out = [f"Invoice preview for {preview.sub_id} ({preview.issued_on})"]
+    for line in preview.lines:
+        out.append(f"  {line.description:<60} {format_amount(line.amount, preview.currency):>16}")
+    out.append(f"  {'Subtotal':<60} {format_amount(preview.subtotal, preview.currency):>16}")
+    if preview.balance_before:
+        out.append(f"  {'Balance before':<60} {format_amount(preview.balance_before, preview.currency):>16}")
+    out.append(f"  {'Amount due':<60} {format_amount(preview.amount_due, preview.currency):>16}")
+    if preview.credit_carried:
+        out.append(f"  {'Credit carried forward':<60} {format_amount(preview.credit_carried, preview.currency):>16}")
+    return "\n".join(out)
+"""Plan catalog: plan definitions and their price history."""
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+from .calendar import interval_months, parse_date
+
+DEFAULT_CATALOG = Path(__file__).resolve().parent.parent / "data" / "catalog.json"
+
+
+@dataclass(frozen=True)
+class Plan:
+    plan_id: str
+    name: str
+    interval: str
+    currency: str
+    # (effective_from, unit price in minor units), sorted by date
+    prices: Tuple[Tuple[date, int], ...] = field(default_factory=tuple)
+
+    @property
+    def months(self) -> int:
+        return interval_months(self.interval)
+
+    def price_on(self, on: date) -> int:
+        """Price in force on ``on`` (the latest entry whose start is <= on)."""
+        current = None
+        for start, cents in self.prices:
+            if start <= on:
+                current = cents
+            else:
+                break
+        if current is None:
+            raise LookupError(f"plan {self.plan_id} has no price on {on}")
+        return current
+
+
+class Catalog:
+    def __init__(self, plans: Dict[str, Plan]):
+        self._plans = dict(plans)
+
+    def plan(self, plan_id: str) -> Plan:
+        try:
+            return self._plans[plan_id]
+        except KeyError:
+            raise KeyError(f"unknown plan: {plan_id}") from None
+
+    def price(self, plan_id: str, on: date) -> int:
+        return self.plan(plan_id).price_on(on)
+
+    def plan_ids(self) -> List[str]:
+        return sorted(self._plans)
+
+    def __contains__(self, plan_id: str) -> bool:
+        return plan_id in self._plans
+
+
+def _plan_from_dict(raw: dict) -> Plan:
+    history = sorted(
+        (parse_date(p["effective_from"]), int(p["unit_amount"])) for p in raw["prices"]
+    )
+    if not history:
+        raise ValueError(f"plan {raw['id']} has an empty price history")
+    if raw["interval"] not in ("month", "year"):
+        raise ValueError(f"plan {raw['id']} has unknown interval {raw['interval']!r}")
+    return Plan(
+        plan_id=raw["id"],
+        name=raw.get("name", raw["id"]),
+        interval=raw["interval"],
+        currency=raw.get("currency", "USD"),
+        prices=tuple(history),
+    )
+
+
+def load_catalog(path: Path | str = DEFAULT_CATALOG) -> Catalog:
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    plans = {}
+    for raw in doc["plans"]:
+        plan = _plan_from_dict(raw)
+        if plan.plan_id in plans:
+            raise ValueError(f"duplicate plan id {plan.plan_id}")
+        plans[plan.plan_id] = plan
+    return Catalog(plans)
+[?2004hroot@43aa687396e6:/app# cat billing/__main__.py data/catalog.json data/subscriptions.json
+[?2004l"""Command line: preview the invoice for a plan change.
+
+    python -m billing preview --sub data/subscriptions.json --id sub_1042 \
+        --to pro-monthly --at 2026-01-31 [--json]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+
+from .calendar import parse_date
+from .catalog import DEFAULT_CATALOG, load_catalog
+from .invoice import build_preview, render_text, to_dict
+from .proration import Subscription, prorate_change
+
+
+def _load_subscription(path: str, sub_id: str) -> tuple[Subscription, int]:
+    with open(path, encoding="utf-8") as fh:
+        rows = json.load(fh)["subscriptions"]
+    for row in rows:
+        if row["id"] == sub_id:
+            sub = Subscription(row["id"], row["customer"], row["plan"], parse_date(row["anchor"]))
+            return sub, int(row.get("balance", 0))
+    raise SystemExit(f"no subscription {sub_id} in {path}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="billing")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    p = sub.add_parser("preview", help="preview a mid-cycle plan change")
+    p.add_argument("--sub", required=True, help="subscriptions JSON file")
+    p.add_argument("--id", required=True, help="subscription id")
+    p.add_argument("--to", required=True, help="new plan id")
+    p.add_argument("--at", required=True, help="change date, YYYY-MM-DD")
+    p.add_argument("--catalog", default=str(DEFAULT_CATALOG))
+    p.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
+
+    catalog = load_catalog(args.catalog)
+    subscription, balance = _load_subscription(args.sub, args.id)
+    proration = prorate_change(subscription, args.to, parse_date(args.at), catalog)
+    currency = catalog.plan(args.to).currency
+    preview = build_preview(proration, currency, balance_before=balance)
+    if args.json:
+        json.dump(to_dict(preview), sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print(render_text(preview))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+{
+  "plans": [
+    {"id": "starter-monthly", "name": "Starter", "interval": "month", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 1200},
+                {"effective_from": "2026-07-01", "unit_amount": 1500}]},
+    {"id": "pro-monthly", "name": "Pro", "interval": "month", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 4900}]},
+    {"id": "team-monthly", "name": "Team", "interval": "month", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 9900},
+                {"effective_from": "2027-01-01", "unit_amount": 10900}]},
+    {"id": "pro-annual", "name": "Pro (annual)", "interval": "year", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 49000}]},
+    {"id": "team-annual", "name": "Team (annual)", "interval": "year", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 99000},
+                {"effective_from": "2027-01-01", "unit_amount": 109000}]},
+    {"id": "starter-annual", "name": "Starter (annual)", "interval": "year", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 12000}]}
+  ]
+}
+{
+  "subscriptions": [
+    {"id": "sub_1001", "customer": "cus_ashgrove", "plan": "starter-monthly", "anchor": "2025-03-14", "balance": 0},
+    {"id": "sub_1042", "customer": "cus_brightline", "plan": "pro-monthly", "anchor": "2024-01-31", "balance": 0},
+    {"id": "sub_1077", "customer": "cus_corvid", "plan": "team-annual", "anchor": "2024-02-29", "balance": -2500},
+    {"id": "sub_1103", "customer": "cus_dunmore", "plan": "pro-monthly", "anchor": "2025-08-30", "balance": 0}
+  ]
+}
+[?2004hroot@43aa687396e6:/app# cat tests/test_calendar.py tests/test_proration.py
+[?2004limport unittest
+from datetime import date
+
+from billing.calendar import add_months, cycle_bounds, days_in_month, iter_cycles
+
+
+class AddMonthsTest(unittest.TestCase):
+    def test_mid_month_anchor(self):
+        self.assertEqual(add_months(date(2025, 3, 14), 1), date(2025, 4, 14))
+        self.assertEqual(add_months(date(2025, 3, 14), 10), date(2026, 1, 14))
+
+    def test_year_rollover(self):
+        self.assertEqual(add_months(date(2025, 11, 5), 3), date(2026, 2, 5))
+        self.assertEqual(add_months(date(2025, 12, 1), 12), date(2026, 12, 1))
+
+    def test_month_end_anchor_clamps_then_returns(self):
+        anchor = date(2026, 1, 31)
+        got = [add_months(anchor, k) for k in range(1, 5)]
+        self.assertEqual(got, [date(2026, 2, 28), date(2026, 3, 31),
+                               date(2026, 4, 30), date(2026, 5, 31)])
+
+    def test_leap_years(self):
+        self.assertEqual(add_months(date(2028, 1, 30), 1), date(2028, 2, 29))
+        anchor = date(2024, 2, 29)
+        got = [add_months(anchor, 12 * k) for k in range(1, 5)]
+        self.assertEqual(got, [date(2025, 2, 28), date(2026, 2, 28),
+                               date(2027, 2, 28), date(2028, 2, 29)])
+
+    def test_days_in_month(self):
+        self.assertEqual(days_in_month(2026, 2), 28)
+        self.assertEqual(days_in_month(2028, 2), 29)
+
+
+class CycleBoundsTest(unittest.TestCase):
+    def test_mid_month(self):
+        self.assertEqual(cycle_bounds(date(2025, 3, 14), date(2026, 6, 20), "month"),
+                         (date(2026, 6, 14), date(2026, 7, 14)))
+
+    def test_change_on_renewal_day_starts_new_cycle(self):
+        self.assertEqual(cycle_bounds(date(2025, 3, 14), date(2026, 6, 14), "month"),
+                         (date(2026, 6, 14), date(2026, 7, 14)))
+
+    def test_month_end_anchor(self):
+        anchor = date(2024, 1, 31)
+        self.assertEqual(cycle_bounds(anchor, date(2026, 2, 15), "month"),
+                         (date(2026, 1, 31), date(2026, 2, 28)))
+        self.assertEqual(cycle_bounds(anchor, date(2026, 3, 10), "month"),
+                         (date(2026, 2, 28), date(2026, 3, 31)))
+
+    def test_annual(self):
+        self.assertEqual(cycle_bounds(date(2024, 2, 29), date(2027, 11, 2), "year"),
+                         (date(2027, 2, 28), date(2028, 2, 29)))
+
+    def test_iter_cycles_is_contiguous(self):
+        cycles = list(iter_cycles(date(2026, 1, 31), date(2026, 6, 1), "month"))
+        self.assertEqual(cycles[0][0], date(2026, 1, 31))
+        for (s1, e1), (s2, _) in zip(cycles, cycles[1:]):
+            self.assertEqual(e1, s2)
+        self.assertEqual(cycles[-1], (date(2026, 5, 31), date(2026, 6, 30)))
+
+
+if __name__ == "__main__":
+    unittest.main()
+import io
+import json
+import unittest
+from contextlib import redirect_stdout
+from datetime import date
+from pathlib import Path
+
+from billing import __main__ as cli
+from billing.catalog import load_catalog
+from billing.invoice import build_preview, format_amount, to_dict
+from billing.proration import Subscription, portion, prorate_change
+
+HERE = Path(__file__).resolve().parent
+APP = HERE.parent
+CASES = json.loads((HERE / "fixtures" / "plan_changes.json").read_text())["cases"]
+
+
+class WorkedExamplesTest(unittest.TestCase):
+    """Finance's worked examples (docs/proration.md, rev. 4)."""
+
+    def setUp(self):
+        self.catalog = load_catalog(APP / "data" / "catalog.json")
+
+    def test_worked_examples(self):
+        for case in CASES:
+            with self.subTest(case=case["id"]):
+                sub = Subscription("sub_x", "cus_x", case["plan"], date.fromisoformat(case["anchor"]))
+                got = prorate_change(sub, case["to"], date.fromisoformat(case["at"]), self.catalog)
+                exp = case["expected"]
+                self.assertEqual((got.period_start.isoformat(), got.period_end.isoformat()),
+                                 (exp["period_start"], exp["period_end"]))
+                self.assertEqual(got.credit, exp["credit"])
+                self.assertEqual(got.charge, exp["charge"])
+                self.assertEqual(got.total, exp["total"])
+                self.assertEqual(got.new_anchor.isoformat(), exp["new_anchor"])
+                self.assertEqual(got.next_renewal.isoformat(), exp["next_renewal"])
+
+
+class PortionTest(unittest.TestCase):
+    def test_half_even(self):
+        self.assertEqual(portion(1, 1, 2), 0)
+        self.assertEqual(portion(3, 1, 2), 2)
+        self.assertEqual(portion(4900, 15, 28), 2625)
+
+    def test_rejects_bad_fraction(self):
+        with self.assertRaises(ValueError):
+            portion(100, 5, 4)
+
+
+class InvoiceTest(unittest.TestCase):
+    def setUp(self):
+        self.catalog = load_catalog(APP / "data" / "catalog.json")
+
+    def test_downgrade_carries_credit(self):
+        sub = Subscription("sub_9", "cus_9", "team-monthly", date(2025, 3, 14))
+        pr = prorate_change(sub, "starter-monthly", date(2026, 6, 20), self.catalog)
+        preview = build_preview(pr, "USD")
+        self.assertEqual(preview.amount_due, 0)
+        self.assertEqual(preview.credit_carried, pr.credit - pr.charge)
+        self.assertEqual([l["kind"] for l in to_dict(preview)["lines"]], ["credit", "charge"])
+
+    def test_format_amount(self):
+        self.assertEqual(format_amount(123456, "USD"), "1,234.56 USD")
+        self.assertEqual(format_amount(-5, "USD"), "-0.05 USD")
+        self.assertEqual(format_amount(500, "JPY"), "500 JPY")
+
+    def test_cli_json_preview(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cli.main(["preview", "--sub", str(APP / "data" / "subscriptions.json"),
+                      "--id", "sub_1001", "--to", "pro-monthly", "--at", "2026-06-20",
+                      "--catalog", str(APP / "data" / "catalog.json"), "--json"])
+        doc = json.loads(buf.getvalue())
+        self.assertEqual(doc["subscription"], "sub_1001")
+        self.assertEqual(doc["subtotal"], 2960)
+        self.assertEqual(doc["amount_due"], 2960)
+
+
+if __name__ == "__main__":
+    unittest.main()
+[?2004hroot@43aa687396e6:/app# cat billing/invoice.py
+[?2004l"""Invoice previews for plan changes."""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+from typing import Dict, List
+
+from .proration import Line, Proration
+
+CURRENCY_EXPONENT = {"USD": 2, "EUR": 2, "GBP": 2, "JPY": 0}
+
+
+@dataclass
+class InvoicePreview:
+    sub_id: str
+    currency: str
+    issued_on: date
+    lines: List[Line] = field(default_factory=list)
+    balance_before: int = 0
+
+    @property
+    def subtotal(self) -> int:
+        return sum(line.amount for line in self.lines)
+
+    @property
+    def amount_due(self) -> int:
+        """What the customer pays now; never negative."""
+        return max(0, self.subtotal + self.balance_before)
+
+    @property
+    def credit_carried(self) -> int:
+        """Credit left on the account after this invoice (positive number)."""
+        return max(0, -(self.subtotal + self.balance_before))
+
+
+def build_preview(proration: Proration, currency: str, balance_before: int = 0) -> InvoicePreview:
+    return InvoicePreview(
+        sub_id=proration.sub_id,
+        currency=currency,
+        issued_on=proration.change_at,
+        lines=list(proration.lines),
+        balance_before=balance_before,
+    )
+
+
+def format_amount(minor: int, currency: str) -> str:
+    exp = CURRENCY_EXPONENT.get(currency, 2)
+    sign = "-" if minor < 0 else ""
+    minor = abs(minor)
+    if exp == 0:
+        return f"{sign}{minor} {currency}"
+    major, frac = divmod(minor, 10 ** exp)
+    return f"{sign}{major:,}.{frac:0{exp}d} {currency}"
+
+
+def to_dict(preview: InvoicePreview) -> Dict:
+    return {
+        "subscription": preview.sub_id,
+        "currency": preview.currency,
+        "issued_on": preview.issued_on.isoformat(),
+        "lines": [
+            {
+                "kind": line.kind,
+                "plan": line.plan_id,
+                "amount": line.amount,
+                "period_start": line.period_start.isoformat(),
+                "period_end": line.period_end.isoformat(),
+                "description": line.description,
+            }
+            for line in preview.lines
+        ],
+        "subtotal": preview.subtotal,
+        "balance_before": preview.balance_before,
+        "amount_due": preview.amount_due,
+        "credit_carried": preview.credit_carried,
+    }
+
+
+def render_text(preview: InvoicePreview) -> str:
+    out = [f"Invoice preview for {preview.sub_id} ({preview.issued_on})"]
+    for line in preview.lines:
+        out.append(f"  {line.description:<60} {format_amount(line.amount, preview.currency):>16}")
+    out.append(f"  {'Subtotal':<60} {format_amount(preview.subtotal, preview.currency):>16}")
+    if preview.balance_before:
+        out.append(f"  {'Balance before':<60} {format_amount(preview.balance_before, preview.currency):>16}")
+    out.append(f"  {'Amount due':<60} {format_amount(preview.amount_due, preview.currency):>16}")
+    if preview.credit_carried:
+        out.append(f"  {'Credit carried forward':<60} {format_amount(preview.credit_carried, preview.currency):>16}")
+    return "\n".join(out)
+[?2004hroot@43aa687396e6:/app# python - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('billing/calendar.py')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace('    """Move ``anchor`` forward by ``months`` calendar months."""', '    """Move ``anchor`` by ``months``, clamping its day to the target month."""')
+[?2004l[?2004h> s = s.replace('    # Not every month has a 29th/30th/31st, so stay on a day that always exists.\n    day = min(anchor.day, 28)', '    day = min(anchor.day, days_in_month(year, month))')
+[?2004l[?2004h> s = s.replace('    start = anchor\n    end = add_months(start, step)\n    while end <= on:\n        start = end\n        end = add_months(start, step)', '    # Estimate the renewal index, then account for dates before the renewal\n    # day. Always calculate from the original anchor to avoid short-month drift.\n    elapsed_months = (on.year - anchor.year) * 12 + on.month - anchor.month\n    k = elapsed_months // step\n    start = add_months(anchor, k * step)\n    if start > on:\n        k -= 1\n        start = add_months(anchor, k * step)\n    end = add_months(anchor, (k + 1) * step)')
+[?2004l[?2004h> s = s.replace('    if interval == "year":\n        return 365\n    return 30', '    """Return the actual number of days in the cycle containing ``on``."""\n    start, end = cycle_bounds(anchor, on, interval)\n    return (end - start).days')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> p = Path('billing/proration.py')
+[?2004l[?2004h> s = p.read_text().replace('from decimal import ROUND_HALF_EVEN, Decimal', 'from fractions import Fraction')
+[?2004l[?2004h> s = s.replace('from .calendar import add_months, cycle_bounds, cycle_length_days, days_between', 'from .calendar import add_months, cycle_bounds, days_between')
+[?2004l[?2004h> s = s.replace('    exact = Decimal(amount) * Decimal(numerator) / Decimal(denominator)\n    return int(exact.quantize(Decimal(1), rounding=ROUND_HALF_EVEN))', '    # Fraction keeps the result exact until the single half-even rounding.\n    return round(Fraction(amount * numerator, denominator))')
+[?2004l[?2004h> s = s.replace('    period_days = cycle_length_days(sub.anchor, change_at, old.interval)', '    period_days = days_between(start, end)')
+[?2004l[?2004h> s = s.replace('    credit = portion(catalog.price(old.plan_id, change_at), remaining, period_days)\n    charge = portion(catalog.price(new.plan_id, change_at), remaining, period_days)\n    new_anchor = sub.anchor\n    next_renewal = end', '    credit = portion(catalog.price(old.plan_id, start), remaining, period_days)\n    new_price = catalog.price(new.plan_id, change_at)\n    if old.interval == new.interval:\n        charge = portion(new_price, remaining, period_days)\n        new_anchor = sub.anchor\n        next_renewal = end\n        charge_description = "Remaining time"\n    else:\n        charge = new_price\n        new_anchor = change_at\n        next_renewal = add_months(new_anchor, new.months)\n        charge_description = "Full cycle"')
+[?2004l[?2004h> s = s.replace('f"Remaining time on {new.name} ({change_at} to {next_renewal})"', 'f"{charge_description} on {new.name} ({change_at} to {next_renewal})"')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@43aa687396e6:/app# python -m unittest discover -s tests
+[?2004l................
+----------------------------------------------------------------------
+Ran 16 tests in 0.002s
+
+OK
+[?2004hroot@43aa687396e6:/app# cat billing/catalog.py
+[?2004l"""Plan catalog: plan definitions and their price history."""
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+from .calendar import interval_months, parse_date
+
+DEFAULT_CATALOG = Path(__file__).resolve().parent.parent / "data" / "catalog.json"
+
+
+@dataclass(frozen=True)
+class Plan:
+    plan_id: str
+    name: str
+    interval: str
+    currency: str
+    # (effective_from, unit price in minor units), sorted by date
+    prices: Tuple[Tuple[date, int], ...] = field(default_factory=tuple)
+
+    @property
+    def months(self) -> int:
+        return interval_months(self.interval)
+
+    def price_on(self, on: date) -> int:
+        """Price in force on ``on`` (the latest entry whose start is <= on)."""
+        current = None
+        for start, cents in self.prices:
+            if start <= on:
+                current = cents
+            else:
+                break
+        if current is None:
+            raise LookupError(f"plan {self.plan_id} has no price on {on}")
+        return current
+
+
+class Catalog:
+    def __init__(self, plans: Dict[str, Plan]):
+        self._plans = dict(plans)
+
+    def plan(self, plan_id: str) -> Plan:
+        try:
+            return self._plans[plan_id]
+        except KeyError:
+            raise KeyError(f"unknown plan: {plan_id}") from None
+
+    def price(self, plan_id: str, on: date) -> int:
+        return self.plan(plan_id).price_on(on)
+
+    def plan_ids(self) -> List[str]:
+        return sorted(self._plans)
+
+    def __contains__(self, plan_id: str) -> bool:
+        return plan_id in self._plans
+
+
+def _plan_from_dict(raw: dict) -> Plan:
+    history = sorted(
+        (parse_date(p["effective_from"]), int(p["unit_amount"])) for p in raw["prices"]
+    )
+    if not history:
+        raise ValueError(f"plan {raw['id']} has an empty price history")
+    if raw["interval"] not in ("month", "year"):
+        raise ValueError(f"plan {raw['id']} has unknown interval {raw['interval']!r}")
+    return Plan(
+        plan_id=raw["id"],
+        name=raw.get("name", raw["id"]),
+        interval=raw["interval"],
+        currency=raw.get("currency", "USD"),
+        prices=tuple(history),
+    )
+
+
+def load_catalog(path: Path | str = DEFAULT_CATALOG) -> Catalog:
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    plans = {}
+    for raw in doc["plans"]:
+        plan = _plan_from_dict(raw)
+        if plan.plan_id in plans:
+            raise ValueError(f"duplicate plan id {plan.plan_id}")
+        plans[plan.plan_id] = plan
+    return Catalog(plans)
+[?2004hroot@43aa687396e6:/app# cat > tests/test_regressions.py <<'PY'
+[?2004l1),
+            (date(2026, 2, 28), 'year', 365),
+            (date(2027, 2, 28), 'year', 365),
+            (date(2024, 2, 29), 'year', 365),
+            (date(2023, 3, 1), 'year', 366),
+        ]:
+            with self.subTest(anchor=anchor, interval=interval):
+                self.assertEqual(cycle_length_days(anchor, anchor, interval), days)
+
+    def test_invalid_cycles(self):
+        with self.assertRaises(ValueError):
+            cycle_bounds(date(2026, 1, 31), date(2026, 1, 30), 'month')
+        with self.assertRaises(ValueError):
+            cycle_bounds(date(2026, 1, 31), date(2026, 1, 31), 'week')
+
+
+class ExactRoundingRegressionTest(unittest.TestCase):
+    def test_large_values_and_decimal_context_do_not_affect_rounding(self):
+        with localcontext() as context:
+            context.prec = 2
+            self.assertEqual(portion(10**40 + 1, 1, 2), 5 * 10**39)
+            self.assertEqual(portion(10**40 + 3, 1, 2), 5 * 10**39 + 2)
+            self.assertEqual(portion(5, 1, 3), 2)
+            self.assertEqual(portion(-3, 1, 2), -2)
+
+
+class PreviewRegressionTest(unittest.TestCase):
+    def test_cli_invoices_match_all_finance_examples(self):
+        cases = json.loads((APP / 'tests/fixtures/plan_changes.json').read_text())['cases']
+        with tempfile.TemporaryDirectory() as directory:
+            subscriptions = Path(directory) / 'subscriptions.json'
+            subscriptions.write_text(json.dumps({'subscriptions': [
+                {'id': case['id'], 'customer': 'test', 'plan': case['plan'],
+                 'anchor': case['anchor']} for case in cases
+            ]}))
+            for case in cases:
+                with self.subTest(case=case['id']):
+                    output = subprocess.check_output([
+                        sys.executable, '-m', 'billing', 'preview',
+                        '--sub', str(subscriptions), '--id', case['id'],
+                        '--to', case['to'], '--at', case['at'],
+                        '--catalog', str(APP / 'data/catalog.json'), '--json',
+                    ], cwd=APP, text=True)
+               [?2004h> """Additional BILL-212 coverage for calendar, rounding, and CLI invoices."""
+[?2004l[?2004h> import json
+[?2004l[?2004h> from datetime import date, timedelta
+[?2004l[?2004h> from decimal import localcontext
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> import subprocess
+[?2004l[?2004h> import sys
+[?2004l[?2004h> import tempfile
+[?2004l[?2004h> import unittest
+[?2004l[?2004h> 
+[?2004l[?2004h> from billing.calendar import add_months, cycle_bounds, cycle_length_days
+[?2004l[?2004h> from billing.proration import portion
+[?2004l[?2004h> 
+[?2004l[?2004h> APP = Path(__file__).resolve().parent.parent
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> class CalendarRegressionTest(unittest.TestCase):
+[?2004l[?2004h>     def test_zero_and_negative_month_offsets(self):
+[?2004l[?2004h>         anchor = date(2028, 3, 31)
+[?2004l[?2004h>         self.assertEqual(add_months(anchor, 0), anchor)
+[?2004l[?2004h>         self.assertEqual(add_months(anchor, -1), date(2028, 2, 29))
+[?2004l[?2004h>         self.assertEqual(add_months(anchor, -13), date(2027, 2, 28))
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_each_renewal_starts_a_cycle_without_anchor_drift(self):
+[?2004l[?2004h>         for anchor, step, interval in [
+[?2004l[?2004h>             (date(2026, 1, 29), 1, 'month'),
+[?2004l[?2004h>             (date(2028, 1, 30), 1, 'month'),
+[?2004l[?2004h>             (date(2026, 1, 31), 1, 'month'),
+[?2004led[?2004h>             (date(2024, 2, 29), 12, 'year'),
+[?2004l[?2004h>             (date(2096, 2, 29), 12, 'year'),
+[?2004l[?2004h>         ]:
+[?2004l[?2004h>             for k in range(1, 50):
+[?2004l[?2004h>                 with self.subTest(anchor=anchor, k=k):
+[?2004l[?2004h>                     previous = add_months(anchor, (k - 1) * step)
+[?2004l[?2004h>                     renewal = add_months(anchor, k * step)
+[?2004l[?2004h>                     following = add_months(anchor, (k + 1) * step)
+[?2004l[?2004h>                     self.assertEqual(cycle_bounds(anchor, renewal, interval),
+[?2004l[?2004h>                                      (renewal, following))
+[?2004l[?2004h>                     self.assertEqual(cycle_bounds(anchor, renewal - timedelta(days=1), interval),
+[?2004l[?2004h>                                      (previous, renewal))
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_actual_cycle_lengths(self):
+[?2004l[?2004h>         for anchor, interval, days in [
+[?2004l[?2004h>             (date(2026, 1, 31), 'month', 28),
+[?2004l[?2004h>             (date(2028, 1, 31), 'month', 29),
+[?2004l[?2004h>             (date(2026, 4, 30), 'month', 30),
+[?2004l[?2004h>             (date(2026, 2, 28), 'month', 28),
+[?2004l[?2004h>             (date(2026, 3, 31), 'month', 30),
+[?2004l[?2004h>             (date(2026, 7, 31), 'month', 31),
+[?2004l[?2004h>             (date(2026, 2, 28), 'year', 365),
+[?2004l[?2004h>             (date(2027, 2, 28), 'year', 365),
+[?2004l[?2004h>             (date(2024, 2, 29), 'year', 365),
+[?2004l[?2004h>             (date(2023, 3, 1), 'year', 366),
+[?2004l[?2004h>         ]:
+[?2004l[?2004h>             with self.subTest(anchor=anchor, interval=interval):
+[?2004l[?2004h>                 self.assertEqual(cycle_length_days(anchor, anchor, interval), days)
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_invalid_cycles(self):
+[?2004l[?2004h>         with self.assertRaises(ValueError):
+[?2004l[?2004h>             cycle_bounds(date(2026, 1, 31), date(2026, 1, 30), 'month')
+[?2004l[?2004h>         with self.assertRaises(ValueError):
+[?2004l[?2004h>             cycle_bounds(date(2026, 1, 31), date(2026, 1, 31), 'week')
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> class ExactRoundingRegressionTest(unittest.TestCase):
+[?2004l[?2004h>     def test_large_values_and_decimal_context_do_not_affect_rounding(self):
+[?2004l[?2004h>         with localcontext() as context:
+[?2004l[?2004h>             context.prec = 2
+[?2004l[?2004h>             self.assertEqual(portion(10**40 + 1, 1, 2), 5 * 10**39)
+[?2004l[?2004h>             self.assertEqual(portion(10**40 + 3, 1, 2), 5 * 10**39 + 2)
+[?2004l[?2004h>             self.assertEqual(portion(5, 1, 3), 2)
+[?2004l[?2004h>             self.assertEqual(portion(-3, 1, 2), -2)
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> class PreviewRegressionTest(unittest.TestCase):
+[?2004l[?2004h>     def test_cli_invoices_match_all_finance_examples(self):
+[?2004l[?2004h>         cases = json.loads((APP / 'tests/fixtures/plan_changes.json').read_text())['cases']
+[?2004l[?2004h>         with tempfile.TemporaryDirectory() as directory:
+[?2004l[?2004h>             subscriptions = Path(directory) / 'subscriptions.json'
+[?2004l[?2004h>             subscriptions.write_text(json.dumps({'subscriptions': [
+[?2004l[?2004h>                 {'id': case['id'], 'customer': 'test', 'plan': case['plan'],
+[?2004l[?2004h>                  'anchor': case['anchor']} for case in cases
+[?2004l[?2004h>             ]}))
+[?2004l[?2004h>             for case in cases:
+[?2004l[?2004h>                 with self.subTest(case=case['id']):
+[?2004l[?2004h>                     output = subprocess.check_output([
+[?2004l[?2004h>                         sys.executable, '-m', 'billing', 'preview',
+[?2004l[?2004h>                         '--sub', str(subscriptions), '--id', case['id'],
+[?2004l[?2004h>                         '--to', case['to'], '--at', case['at'],
+[?2004l[?2004h>                         '--catalog', str(APP / 'data/catalog.json'), '--json',
+[?2004l[?2004h>                     ], cwd=APP, text=True)
+[?2004l[?2004h>                     invoice = json.loads(output)
+[?2004l[?2004h>                     expected = case['expected']
+[?2004l[?2004h>                     credit, charge = invoice['lines']
+[?2004l[?2004h>                     self.assertEqual((credit['kind'], credit['amount']),
+[?2004l[?2004h>                                      ('credit', -expected['credit']))
+[?2004l[?2004h>                     self.assertEqual((charge['kind'], charge['amount']),
+[?2004l[?2004h>                                      ('charge', expected['charge']))
+[?2004l[?2004h>                     self.assertEqual(credit['period_start'], case['at'])
+[?2004l[?2004h>                     self.assertEqual(credit['period_end'], expected['period_end'])
+[?2004l[?2004h>                     self.assertEqual(charge['period_start'], case['at'])
+[?2004l[?2004h>                     self.assertEqual(charge['period_end'], expected['next_renewal'])
+[?2004l[?2004h>                     self.assertEqual(invoice['subtotal'], expected['total'])
+[?2004l[?2004h>                     self.assertEqual(invoice['amount_due'], max(0, expected['total']))
+[?2004l[?2004h>                     self.assertEqual(invoice['credit_carried'], max(0, -expected['total']))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@43aa687396e6:/app# python -m unittest discover -s tests
+[?2004l......................
+----------------------------------------------------------------------
+Ran 22 tests in 0.504s
+
+OK
+[?2004hroot@43aa687396e6:/app# python -m billing preview --sub data/subscriptions.json --id sub_1042 --to team-monthly --at 2026-03-10
+[?2004lInvoice preview for sub_1042 (2026-03-10)
+  Unused time on Pro (2026-03-10 to 2026-03-31)                      -33.19 USD
+  Remaining time on Team (2026-03-10 to 2026-03-31)                   67.06 USD
+  Subtotal                                                            33.87 USD
+  Amount due                                                          33.87 USD
+[?2004hroot@43aa687396e6:/app# python -m billing preview --sub data/subscriptions.json --id sub_1077 --to pro-annual --at 2027-11-02
+[?2004lInvoice preview for sub_1077 (2027-11-02)
+  Unused time on Team (annual) (2027-11-02 to 2028-02-29)           -354.40 USD
+  Remaining time on Pro (annual) (2027-11-02 to 2028-02-29)          159.32 USD
+  Subtotal                                                          -195.08 USD
+  Balance before                                                     -25.00 USD
+  Amount due                                                           0.00 USD
+  Credit carried forward                                             220.08 USD
+[?2004hroot@43aa687396e6:/app# python -m billing preview --sub data/subscriptions.json --id sub_1103 --to pro-annual --at 2026-02-27 --json
+[?2004l{
+  "subscription": "sub_1103",
+  "currency": "USD",
+  "issued_on": "2026-02-27",
+  "lines": [
+    {
+      "kind": "credit",
+      "plan": "pro-monthly",
+      "amount": -169,
+      "period_start": "2026-02-27",
+      "period_end": "2026-02-28",
+      "description": "Unused time on Pro (2026-02-27 to 2026-02-28)"
+    },
+    {
+      "kind": "charge",
+      "plan": "pro-annual",
+      "amount": 49000,
+      "period_start": "2026-02-27",
+      "period_end": "2027-02-27",
+      "description": "Full cycle on Pro (annual) (2026-02-27 to 2027-02-27)"
+    }
+  ],
+  "subtotal": 48831,
+  "balance_before": 0,
+  "amount_due": 48831,
+  "credit_carried": 0
+}
+[?2004hroot@43aa687396e6:/app# cd /app && python -m unittest discover -s tests
+[?2004l......................
+----------------------------------------------------------------------
+Ran 22 tests in 0.514s
+
+OK
+[?2004hroot@43aa687396e6:/app# sed -n '25,85p' billing/calendar.py && sed -n '55,125p' billing/proration.py
+[?2004l
+
+def is_leap(year: int) -> bool:
+    return _stdcal.isleap(year)
+
+
+def add_months(anchor: date, months: int) -> date:
+    """Move ``anchor`` by ``months``, clamping its day to the target month."""
+    total = anchor.month - 1 + months
+    year = anchor.year + total // 12
+    month = total % 12 + 1
+    day = min(anchor.day, days_in_month(year, month))
+    return date(year, month, day)
+
+
+def cycle_bounds(anchor: date, on: date, interval: str) -> Tuple[date, date]:
+    """Return ``(start, end)`` of the billing cycle containing ``on``.
+
+    ``start`` is inclusive and ``end`` is exclusive (the next renewal date).
+    """
+    if on < anchor:
+        raise ValueError(f"{on} is before the subscription anchor {anchor}")
+    step = interval_months(interval)
+    # Estimate the renewal index, then account for dates before the renewal
+    # day. Always calculate from the original anchor to avoid short-month drift.
+    elapsed_months = (on.year - anchor.year) * 12 + on.month - anchor.month
+    k = elapsed_months // step
+    start = add_months(anchor, k * step)
+    if start > on:
+        k -= 1
+        start = add_months(anchor, k * step)
+    end = add_months(anchor, (k + 1) * step)
+    return start, end
+
+
+def cycle_length_days(anchor: date, on: date, interval: str) -> int:
+    """Return the actual number of days in the cycle containing ``on``."""
+    start, end = cycle_bounds(anchor, on, interval)
+    return (end - start).days
+
+
+def iter_cycles(anchor: date, until: date, interval: str) -> Iterator[Tuple[date, date]]:
+    """Yield every cycle from the anchor up to and including the one containing ``until``."""
+    start, end = cycle_bounds(anchor, anchor, interval)
+    while start <= until:
+        yield start, end
+        start, end = cycle_bounds(anchor, end, interval)
+
+
+def days_between(a: date, b: date) -> int:
+    return (b - a).days
+
+
+def parse_date(text: str) -> date:
+    return date.fromisoformat(text)
+
+
+def end_of_day(d: date) -> date:
+    return d + timedelta(days=1)
+    if denominator <= 0:
+        raise ValueError("denominator must be positive")
+    if not 0 <= numerator <= denominator:
+        raise ValueError(f"fraction {numerator}/{denominator} out of range")
+    # Fraction keeps the result exact until the single half-even rounding.
+    return round(Fraction(amount * numerator, denominator))
+
+
+def prorate_change(sub: Subscription, new_plan_id: str, change_at: date,
+                   catalog: Catalog) -> Proration:
+    """Compute the credit and charge for moving ``sub`` to ``new_plan_id`` on ``change_at``."""
+    if new_plan_id == sub.plan_id:
+        raise ValueError("subscription is already on that plan")
+    old = catalog.plan(sub.plan_id)
+    new = catalog.plan(new_plan_id)
+    if old.currency != new.currency:
+        raise ValueError("cross-currency plan changes are not supported")
+
+    start, end = cycle_bounds(sub.anchor, change_at, old.interval)
+    period_days = days_between(start, end)
+    remaining = days_between(change_at, end)
+
+    credit = portion(catalog.price(old.plan_id, start), remaining, period_days)
+    new_price = catalog.price(new.plan_id, change_at)
+    if old.interval == new.interval:
+        charge = portion(new_price, remaining, period_days)
+        new_anchor = sub.anchor
+        next_renewal = end
+        charge_description = "Remaining time"
+    else:
+        charge = new_price
+        new_anchor = change_at
+        next_renewal = add_months(new_anchor, new.months)
+        charge_description = "Full cycle"
+
+    lines = [
+        Line("credit", old.plan_id, -credit, change_at, end,
+             f"Unused time on {old.name} ({change_at} to {end})"),
+        Line("charge", new.plan_id, charge, change_at, next_renewal,
+             f"{charge_description} on {new.name} ({change_at} to {next_renewal})"),
+    ]
+    return Proration(sub.sub_id, change_at, start, end, credit, charge,
+                     new_anchor, next_renewal, lines)
+
+
+def renewal_after(sub: Subscription, on: date, catalog: Catalog) -> date:
+    """Next renewal date strictly after ``on`` for an unchanged subscription."""
+    plan = catalog.plan(sub.plan_id)
+    _, end = cycle_bounds(sub.anchor, on, plan.interval)
+    return end
+
+
+def renewal_schedule(sub: Subscription, count: int, catalog: Catalog) -> List[date]:
+    plan = catalog.plan(sub.plan_id)
+    return [add_months(sub.anchor, plan.months * k) for k in range(1, count + 1)]
+[?2004hroot@43aa687396e6:/app# python -m unittest discover -s tests
+[?2004l......................
+----------------------------------------------------------------------
+Ran 22 tests in 0.482s
+
+OK
+[?2004hroot@43aa687396e6:/app# 

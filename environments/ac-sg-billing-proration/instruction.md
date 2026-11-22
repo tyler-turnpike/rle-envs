@@ -8,8 +8,7 @@ between monthly and annual billing.
 The billing engine lives in `/app` (`billing/`). Finance has signed off the rules in
 `docs/proration.md` (rev. 4) and turned the worst tickets into worked examples, which
 are already wired into the test suite. Please fix the engine so plan changes are
-prorated according to those rules, for every customer, not only the ones in the
-examples.
+prorated according to those rules.
 
 Done means:
 
