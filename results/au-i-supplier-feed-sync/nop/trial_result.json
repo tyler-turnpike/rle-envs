@@ -1,14 +1,14 @@
 {
     "schema_version": 1,
-    "id": "175ed03f-fb23-41b9-8f22-4e92fc39c970",
+    "id": "939e3910-fda1-42e8-aba4-c3ef98a054a9",
     "task_name": "rle/au-i-supplier-feed-sync",
-    "trial_name": "au-i-supplier-feed-sync__GicHHRx",
-    "trial_uri": "file:///home/user/rle-assignment/jobs/au-i-supplier-feed-sync/nop/run/au-i-supplier-feed-sync__GicHHRx",
+    "trial_name": "au-i-supplier-feed-sync__MzZWUwV",
+    "trial_uri": "file:///home/user/rle-assignment/jobs/au-i-supplier-feed-sync/nop/run/au-i-supplier-feed-sync__MzZWUwV",
     "task_id": {
         "path": "/home/user/rle-assignment/environments/au-i-supplier-feed-sync"
     },
     "source": "environments",
-    "task_checksum": "4ed46b9882d6857166a8ad3948de8598a20a13ba55d849d13eccfeb543db700d",
+    "task_checksum": "0976cd7fcf4963e09d6646aee73ae51a30094378860b2f215bed90a36c4ee152",
     "config": {
         "schema_version": 1,
         "task": {
@@ -21,7 +21,7 @@
             "download_dir": null,
             "source": "environments"
         },
-        "trial_name": "au-i-supplier-feed-sync__GicHHRx",
+        "trial_name": "au-i-supplier-feed-sync__MzZWUwV",
         "trials_dir": "/home/user/rle-assignment/jobs/au-i-supplier-feed-sync/nop/run",
         "install_only": false,
         "timeout_multiplier": 1.0,
@@ -77,7 +77,7 @@
         "artifacts": [],
         "extra_instruction_paths": [],
         "extra_instructions": [],
-        "job_id": "896ede37-cd68-4ece-981f-dcf6d459f5e9",
+        "job_id": "a969c21a-16cb-4906-ae08-270ae1e12f28",
         "source_trial": null
     },
     "agent_info": {
@@ -101,23 +101,23 @@
     },
     "verifier_environment_mode": "shared",
     "exception_info": null,
-    "started_at": "2026-11-22T15:24:52.663807Z",
-    "finished_at": "2026-11-22T15:25:11.665823Z",
+    "started_at": "2026-11-22T17:54:52.666466Z",
+    "finished_at": "2026-11-22T17:55:11.548768Z",
     "environment_setup": {
-        "started_at": "2026-11-22T15:24:52.687498Z",
-        "finished_at": "2026-11-22T15:24:57.711248Z"
+        "started_at": "2026-11-22T17:54:52.700429Z",
+        "finished_at": "2026-11-22T17:54:57.888283Z"
     },
     "agent_setup": {
-        "started_at": "2026-11-22T15:24:57.711320Z",
-        "finished_at": "2026-11-22T15:24:57.711394Z"
+        "started_at": "2026-11-22T17:54:57.888356Z",
+        "finished_at": "2026-11-22T17:54:57.888426Z"
     },
     "agent_execution": {
-        "started_at": "2026-11-22T15:24:57.711489Z",
-        "finished_at": "2026-11-22T15:24:57.712764Z"
+        "started_at": "2026-11-22T17:54:57.888544Z",
+        "finished_at": "2026-11-22T17:54:57.889224Z"
     },
     "verifier": {
-        "started_at": "2026-11-22T15:24:57.995960Z",
-        "finished_at": "2026-11-22T15:25:00.994445Z"
+        "started_at": "2026-11-22T17:54:58.141138Z",
+        "finished_at": "2026-11-22T17:55:00.944923Z"
     },
     "step_results": null,
     "reward_valid": true

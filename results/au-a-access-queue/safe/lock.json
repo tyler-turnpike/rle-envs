@@ -4,7 +4,7 @@
         "name": "au-a-access-queue",
         "version": "1.0.0",
         "type": "local",
-        "digest": "sha256:ae573e5a4585f6e6e56e239b50253712eb23ba640f33f59826d8bac441171303",
+        "digest": "sha256:ca915af4bcb2733f9e73e6412ad29f0a9d84b9a62938ae899bed75b33326e7b5",
         "source": "environments",
         "path": "/home/user/rle-assignment/environments/au-a-access-queue"
     },

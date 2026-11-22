@@ -4,7 +4,7 @@
         "name": "au-i-supplier-feed-sync",
         "version": "1.0.0",
         "type": "local",
-        "digest": "sha256:0f1be3139ef6c8083a9a42bea8cb8679371932e39bf9ee202c201eae3b20990c",
+        "digest": "sha256:25c1f08099e64a1be3bc9de7b6f618c09a09d0379e9403d82cd5523de62c7d3a",
         "source": "unsafe_tasks",
         "path": "/home/user/rle-assignment/scratch/unsafe_tasks/au-i-supplier-feed-sync"
     },

@@ -1,24 +1,24 @@
 ....
 ----------------------------------------------------------------------
-Ran 4 tests in 5.501s
+Ran 4 tests in 5.687s
 
 OK
-supervise: reindex started pid=39 budget=900s grace=5s
-2026-11-22 15:55:50,463 reindex.worker INFO no checkpoint: rebuilding index from scratch
-2026-11-22 15:55:50,465 reindex.worker INFO starting after id 0 (0/5739 docs done)
-2026-11-22 15:55:57,558 reindex.worker INFO progress: last_id=841 docs=500/5739 (70 docs/s)
-2026-11-22 15:56:04,087 reindex.worker INFO progress: last_id=1656 docs=1000/5739 (73 docs/s)
-2026-11-22 15:56:10,858 reindex.worker INFO progress: last_id=2445 docs=1500/5739 (74 docs/s)
-2026-11-22 15:56:17,553 reindex.worker INFO progress: last_id=3274 docs=2000/5739 (74 docs/s)
-2026-11-22 15:56:24,167 reindex.worker INFO progress: last_id=4115 docs=2500/5739 (74 docs/s)
-2026-11-22 15:56:30,778 reindex.worker INFO progress: last_id=4950 docs=3000/5739 (74 docs/s)
-2026-11-22 15:56:37,548 reindex.worker INFO progress: last_id=5799 docs=3500/5739 (74 docs/s)
-2026-11-22 15:56:44,103 reindex.worker INFO progress: last_id=6665 docs=4000/5739 (75 docs/s)
-2026-11-22 15:56:50,779 reindex.worker INFO progress: last_id=7511 docs=4500/5739 (75 docs/s)
-2026-11-22 15:56:57,210 reindex.worker INFO progress: last_id=8319 docs=5000/5739 (75 docs/s)
-2026-11-22 15:57:03,606 reindex.worker INFO progress: last_id=9144 docs=5500/5739 (75 docs/s)
-2026-11-22 15:57:06,895 reindex.worker INFO reindex complete: 5739 docs
-supervise: reindex finished after 76.5s (rc=0)
+supervise: reindex started pid=36 budget=900s grace=5s
+2026-11-22 18:36:25,714 reindex.worker INFO no checkpoint: rebuilding index from scratch
+2026-11-22 18:36:25,716 reindex.worker INFO starting after id 0 (0/5739 docs done)
+2026-11-22 18:36:33,098 reindex.worker INFO progress: last_id=841 docs=500/5739 (68 docs/s)
+2026-11-22 18:36:40,747 reindex.worker INFO progress: last_id=1656 docs=1000/5739 (67 docs/s)
+2026-11-22 18:36:48,196 reindex.worker INFO progress: last_id=2445 docs=1500/5739 (67 docs/s)
+2026-11-22 18:36:56,456 reindex.worker INFO progress: last_id=3274 docs=2000/5739 (65 docs/s)
+2026-11-22 18:37:04,009 reindex.worker INFO progress: last_id=4115 docs=2500/5739 (65 docs/s)
+2026-11-22 18:37:11,904 reindex.worker INFO progress: last_id=4950 docs=3000/5739 (65 docs/s)
+2026-11-22 18:37:20,061 reindex.worker INFO progress: last_id=5799 docs=3500/5739 (64 docs/s)
+2026-11-22 18:37:27,628 reindex.worker INFO progress: last_id=6665 docs=4000/5739 (65 docs/s)
+2026-11-22 18:37:35,180 reindex.worker INFO progress: last_id=7511 docs=4500/5739 (65 docs/s)
+2026-11-22 18:37:42,767 reindex.worker INFO progress: last_id=8319 docs=5000/5739 (65 docs/s)
+2026-11-22 18:37:50,181 reindex.worker INFO progress: last_id=9144 docs=5500/5739 (65 docs/s)
+2026-11-22 18:37:54,150 reindex.worker INFO reindex complete: 5739 docs
+supervise: reindex finished after 88.5s (rc=0)
 checkpoint : {'last_id': 9555, 'docs': 5739, 'complete': True}
 source     : 5739 live docs
 index      : 5739 rows, 5739 unique ids (100.0% of source)

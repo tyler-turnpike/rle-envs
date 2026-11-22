@@ -4,7 +4,11 @@
     python3 ops/supervise.py run <job>       run (or resume) the job inside its budget
     python3 ops/supervise.py history <job>   show the last runs
 
-Per-job limits live in ops/limits.json.  When a run reaches its wall-clock budget
+Per-job limits live in ops/limits.json.  On-call can lift a job's limits for a one-off
+backfill by dropping ops/overrides/<job>.json (any of the keys in limits.json); every run
+logs the limits it actually used.  Delete the override when the backfill is done.
+
+When a run reaches its wall-clock budget
 the job's process group gets SIGTERM; whatever is still alive `grace_seconds` later
 gets SIGKILL.  Nothing the job started is left running when this returns.  A run
 that starts less than `cooldown_seconds` after the previous run ended waits out the
@@ -26,6 +30,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 LIMITS_FILE = ROOT / "ops" / "limits.json"
+OVERRIDES_DIR = ROOT / "ops" / "overrides"
 RUN_DIR = ROOT / "var" / "run"
 LOG_FILE = ROOT / "var" / "supervisor.log"
 JOBS = {"reindex": [sys.executable, "-m", "reindex.worker"]}
@@ -41,7 +46,10 @@ def _raise_interrupted(signum, frame):
 
 
 def load_limits(job):
-    limits = json.loads(LIMITS_FILE.read_text())["jobs"][job]
+    limits = dict(json.loads(LIMITS_FILE.read_text())["jobs"][job])
+    override = OVERRIDES_DIR / ("%s.json" % job)
+    if override.exists():
+        limits.update(json.loads(override.read_text()))
     return (float(limits["budget_seconds"]), float(limits["grace_seconds"]),
             float(limits.get("cooldown_seconds", 0)))
 

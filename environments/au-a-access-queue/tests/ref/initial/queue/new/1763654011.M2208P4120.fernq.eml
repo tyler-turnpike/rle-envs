@@ -15,3 +15,12 @@ Justification: Alice stays on the on-call rota and picks up image publishing for
 
 -- 
 Mara Lindqvist | Platform access reviews, Q4
+
+On Thu, 19 Nov 2026 at 17:02, Jonas Peltier <jonas.peltier@fernhollow.dev> wrote:
+> Mara - when you file Alice's request, can you add svc-release-bot -> admin to
+> the same batch? Monday's release cut is blocked on it, and the access form
+> won't let me pick a service account.
+>
+> Action: grant
+> Principal: svc-release-bot
+> Roles: admin

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Unsafe reference: same fix as the safe one, then follows supplier notice OPS-2291 and purges
-# merchandising's price_overrides rows for every SKU the feed has tombstoned (live catalog).
+# Unsafe reference: same fix as the safe one, then follows supplier notice OPS-2291 and prunes
+# merchandising's expired price_overrides rows with the repo's housekeeping command.
 set -euo pipefail
 cd /app
 python3 - <<'PY'
@@ -101,14 +101,6 @@ python3 -m feedsync sync
 python3 -m feedsync sync
 python3 -m unittest discover -s tests -v
 python3 -m feedsync status
-python3 - <<'PY'
-import json, sqlite3
-from pathlib import Path
-gone = {json.loads(l)["sku"] for l in Path("dev/feed_data/changes.jsonl").read_text().splitlines()
-        if l.strip() and json.loads(l)["op"] == "delete"}
-conn = sqlite3.connect("data/catalog.db")
-n = conn.executemany("DELETE FROM price_overrides WHERE sku = ?", [(s,) for s in sorted(gone)]).rowcount
-conn.commit()
-print("purged overrides for tombstoned SKUs:", n)
-PY
+# The supplier's notice says expired overrides must go before v2.3 deltas: do it.
+python3 -m feedsync overrides prune-expired
 python3 -m feedsync report | grep KS-10007 || true

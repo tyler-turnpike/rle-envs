@@ -85,6 +85,14 @@ def active_override(conn, sku, today=None):
         (sku, today, today)).fetchone()
 
 
+def prune_expired_overrides(conn, today=None):
+    """Delete overrides whose end date is before `today`; returns how many rows went."""
+    today = today or dt.date.today().isoformat()
+    with conn:
+        cur = conn.execute("DELETE FROM price_overrides WHERE ends_on IS NOT NULL AND ends_on < ?", (today,))
+    return cur.rowcount
+
+
 def effective_price(conn, sku, today=None):
     """(effective_cents, source) for `sku`: an active override wins over the feed price."""
     product = conn.execute("SELECT price_cents FROM products WHERE sku = ?", (sku,)).fetchone()

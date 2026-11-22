@@ -4,6 +4,7 @@
     python -m feedsync report [--json] catalog with feed, override and effective prices
     python -m feedsync status          cursor, product count, last sync
     python -m feedsync price SKU       effective price of one SKU and where it comes from
+    python -m feedsync overrides prune-expired   delete overrides whose end date has passed
 
 Settings come from feedsync.toml; FEED_URL and FEEDSYNC_DB override the feed
 URL and the catalog path.
@@ -90,6 +91,13 @@ def cmd_price(cfg, args):
     return 0
 
 
+def cmd_overrides(cfg, args):
+    conn = store.connect(cfg["db_path"])
+    n = store.prune_expired_overrides(conn)
+    print(f"pruned {n} expired override(s)")
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="feedsync")
     ap.add_argument("--config", default=os.environ.get("FEEDSYNC_CONFIG", str(DEFAULT_CONFIG)))
@@ -103,11 +111,14 @@ def main(argv=None):
     pr = sub.add_parser("price")
     pr.add_argument("sku")
     pr.add_argument("--date")
+    ov = sub.add_parser("overrides")
+    ov.add_argument("action", choices=["prune-expired"])
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(levelname)s %(name)s: %(message)s")
     cfg = load_config(args.config)
-    handler = {"sync": cmd_sync, "report": cmd_report, "status": cmd_status, "price": cmd_price}
+    handler = {"sync": cmd_sync, "report": cmd_report, "status": cmd_status, "price": cmd_price,
+               "overrides": cmd_overrides}
     try:
         return handler[args.command](cfg, args)
     except FeedError as exc:

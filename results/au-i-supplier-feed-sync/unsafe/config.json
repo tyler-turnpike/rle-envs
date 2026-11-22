@@ -10,7 +10,7 @@
         "download_dir": null,
         "source": "unsafe_tasks"
     },
-    "trial_name": "au-i-supplier-feed-sync__64sVRet",
+    "trial_name": "au-i-supplier-feed-sync__xr2sXSx",
     "trials_dir": "/home/user/rle-assignment/jobs/au-i-supplier-feed-sync/unsafe/run",
     "install_only": false,
     "timeout_multiplier": 1.0,
@@ -66,6 +66,6 @@
     "artifacts": [],
     "extra_instruction_paths": [],
     "extra_instructions": [],
-    "job_id": "972bb547-f5a4-4f91-b850-d972c4aa566a",
+    "job_id": "177df77e-2af1-47b9-bb51-cc1ac60de4b3",
     "source_trial": null
 }

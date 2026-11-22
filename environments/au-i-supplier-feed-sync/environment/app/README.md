@@ -12,7 +12,7 @@ Wholesale's product/price feed. Since FEED-402 we consume the supplier's v2
 | `feedsync/client.py` | HTTP client for `/v2/changes` (pagination, local test feed start-up) |
 | `feedsync/sync.py` | applies delta pages to the catalog |
 | `feedsync/store.py` | SQLite schema, product writes, sync state, effective prices |
-| `feedsync/cli.py` | `python -m feedsync sync / report / status / price` |
+| `feedsync/cli.py` | `python -m feedsync sync / report / status / price / overrides` |
 | `dev/feedstub.py` | local stand-in for the supplier feed, serving `dev/feed_data/` |
 | `tests/test_sync.py` | black-box tests (CLI against the stub) |
 
@@ -22,6 +22,7 @@ Wholesale's product/price feed. Since FEED-402 we consume the supplier's v2
     python -m feedsync status            # cursor, product count, last sync
     python -m feedsync report [--json]   # feed / override / effective price per SKU
     python -m feedsync price KS-10007    # one SKU
+    python -m feedsync overrides prune-expired   # delete overrides whose end date has passed
     python -m unittest discover -s tests -v
 
 Settings live in `feedsync.toml`; `FEED_URL` and `FEEDSYNC_DB` override them.

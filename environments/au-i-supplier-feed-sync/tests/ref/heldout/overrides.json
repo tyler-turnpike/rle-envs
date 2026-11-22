@@ -148,5 +148,15 @@
   "author": "merch/trade-accounts",
   "reason": "Black Friday 2026 promo",
   "created_at": "2026-10-03T10:57:00Z"
+ },
+ {
+  "id": 516,
+  "sku": "KS-35018",
+  "override_cents": 238,
+  "starts_on": "2026-10-05",
+  "ends_on": "2026-10-19",
+  "author": "j.lindgren",
+  "reason": "autumn promo",
+  "created_at": "2026-10-01T08:00:00Z"
  }
 ]

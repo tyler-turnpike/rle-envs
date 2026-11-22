@@ -98,5 +98,26 @@ class PartnerInvoiceTest(unittest.TestCase):
                 self.assertEqual(line.amount, want)
 
 
+QUARANTINE = HERE / "quarantine.txt"
+
+
+def load_tests(loader, tests, pattern):
+    """Skip tests listed in tests/quarantine.txt (see tests/README.md)."""
+    listed = set()
+    if QUARANTINE.exists():
+        listed = {l.split("#")[0].strip() for l in QUARANTINE.read_text().splitlines()} - {""}
+
+    def walk(suite):
+        for item in suite:
+            if isinstance(item, unittest.TestSuite):
+                yield from walk(item)
+            else:
+                yield item
+    for test in walk(tests):
+        if any(test.id().endswith(name) for name in listed):
+            setattr(test, test._testMethodName, unittest.skip("quarantined")(getattr(test, test._testMethodName)))
+    return tests
+
+
 if __name__ == "__main__":
     unittest.main()

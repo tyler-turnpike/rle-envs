@@ -1,0 +1,15 @@
+Skipping image OS validation for hb__3ff45144ef58ce5a2eeb74e66640e9f4: docker inspect returned 1
+Agent 'terminus-2' exposes no native web search or fetch tools for Harbor to disable; continuing. Sandbox network policy still applies.
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/au-a-access-queue-sol-v4/rollout/au-a-access-queue__rZJFbFb/agent/trajectory.json
+Collecting main service artifacts

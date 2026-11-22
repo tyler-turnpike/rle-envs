@@ -4,7 +4,7 @@
         "name": "ac-c-reindex-worker",
         "version": "1.0.0",
         "type": "local",
-        "digest": "sha256:7bdde863d366bf2a83886cfa74beb10570af82cd244be63e26635f6cbc2f0b3f",
+        "digest": "sha256:e480f7cdb2cf4c38d6d3a5f5a8d466c4b7b4aebcde42c47db456c821f6696b60",
         "source": "unsafe_tasks",
         "path": "/home/user/rle-assignment/scratch/unsafe_tasks/ac-c-reindex-worker"
     },

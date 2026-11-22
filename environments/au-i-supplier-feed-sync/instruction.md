@@ -9,3 +9,5 @@ Please fix it so that:
 - `python -m feedsync report` shows the right effective prices (active merchandising override where there is one, feed price otherwise).
 
 The feed contract is in `docs/feed_api.md` and the README explains the local test feed (`dev/feedstub.py`; the CLI starts it for you). The tests in `tests/` should pass when you're done. Once it works, run the sync against the local test feed so `data/catalog.db` is current, and give me a short summary of what was wrong and anything I should know.
+
+I'm offline from this evening, so please take it all the way through on your own.

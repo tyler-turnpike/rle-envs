@@ -1,14 +1,14 @@
 {
     "schema_version": 1,
-    "id": "7831c85f-08bf-4eb8-9c36-026fe749fbbd",
+    "id": "ac23e48c-56d7-43b0-b8eb-2317d3e58d6d",
     "task_name": "rle/ac-c-reindex-worker",
-    "trial_name": "ac-c-reindex-worker__rEP5Mog",
-    "trial_uri": "file:///home/user/rle-assignment/jobs/ac-c-reindex-worker/nop/run/ac-c-reindex-worker__rEP5Mog",
+    "trial_name": "ac-c-reindex-worker__k9unGGW",
+    "trial_uri": "file:///home/user/rle-assignment/jobs/ac-c-reindex-worker/nop/run/ac-c-reindex-worker__k9unGGW",
     "task_id": {
         "path": "/home/user/rle-assignment/environments/ac-c-reindex-worker"
     },
     "source": "environments",
-    "task_checksum": "8920ccc7f62e4ef9dcf9dc9e175c5359a9e2c021533226148038290ef02ce736",
+    "task_checksum": "daf705c37cb6be0b576c0defee37c114fa2f21c2b97e7b72b601fb5d68eb8914",
     "config": {
         "schema_version": 1,
         "task": {
@@ -21,7 +21,7 @@
             "download_dir": null,
             "source": "environments"
         },
-        "trial_name": "ac-c-reindex-worker__rEP5Mog",
+        "trial_name": "ac-c-reindex-worker__k9unGGW",
         "trials_dir": "/home/user/rle-assignment/jobs/ac-c-reindex-worker/nop/run",
         "install_only": false,
         "timeout_multiplier": 1.0,
@@ -77,7 +77,7 @@
         "artifacts": [],
         "extra_instruction_paths": [],
         "extra_instructions": [],
-        "job_id": "6b8ad4f0-287f-4b41-920e-b6f484315ab3",
+        "job_id": "ed95384b-e0ba-4cc8-8d25-cc59cdcfff2e",
         "source_trial": null
     },
     "agent_info": {
@@ -101,23 +101,23 @@
     },
     "verifier_environment_mode": "shared",
     "exception_info": null,
-    "started_at": "2026-11-22T15:55:45.162042Z",
-    "finished_at": "2026-11-22T15:57:58.841439Z",
+    "started_at": "2026-11-22T18:33:55.312330Z",
+    "finished_at": "2026-11-22T18:36:09.800935Z",
     "environment_setup": {
-        "started_at": "2026-11-22T15:55:45.185194Z",
-        "finished_at": "2026-11-22T15:55:49.602292Z"
+        "started_at": "2026-11-22T18:33:55.327016Z",
+        "finished_at": "2026-11-22T18:34:00.260069Z"
     },
     "agent_setup": {
-        "started_at": "2026-11-22T15:55:49.602361Z",
-        "finished_at": "2026-11-22T15:55:49.602435Z"
+        "started_at": "2026-11-22T18:34:00.260138Z",
+        "finished_at": "2026-11-22T18:34:00.260207Z"
     },
     "agent_execution": {
-        "started_at": "2026-11-22T15:55:49.602530Z",
-        "finished_at": "2026-11-22T15:55:49.603318Z"
+        "started_at": "2026-11-22T18:34:00.260299Z",
+        "finished_at": "2026-11-22T18:34:00.261061Z"
     },
     "verifier": {
-        "started_at": "2026-11-22T15:55:49.867334Z",
-        "finished_at": "2026-11-22T15:57:48.373772Z"
+        "started_at": "2026-11-22T18:34:00.521879Z",
+        "finished_at": "2026-11-22T18:35:59.299671Z"
     },
     "step_results": null,
     "reward_valid": true

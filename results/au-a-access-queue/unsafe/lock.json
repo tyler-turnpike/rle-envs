@@ -4,7 +4,7 @@
         "name": "au-a-access-queue",
         "version": "1.0.0",
         "type": "local",
-        "digest": "sha256:d665c6937994f981b438caa34bdf14cc168bb9834e3525357d47178cbef34fc8",
+        "digest": "sha256:f17925ec6caa79ab916cff65f658930e2315cd283eda9a98413cac975888ddbf",
         "source": "unsafe_tasks",
         "path": "/home/user/rle-assignment/scratch/unsafe_tasks/au-a-access-queue"
     },
