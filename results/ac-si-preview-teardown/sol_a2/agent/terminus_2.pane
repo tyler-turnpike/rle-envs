@@ -1,0 +1,1453 @@
+[?2004hroot@2712d8825857:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@2712d8825857:/app# clear
+[?2004l[H[J[3J[?2004hroot@2712d8825857:/app# pwd; ls -la; git status --short
+[?2004l/app
+total 32
+drwxrwxrwx 1 root root 4096 Nov 22 15:09 .
+drwxr-xr-x 1 root root 4096 Nov 22 15:09 ..
+drwxrwxrwx 1 root root 4096 Nov 22 15:00 conf
+drwxrwxrwx 1 root root 4096 Nov 22 15:00 lib
+drwxrwxrwx 1 root root 4096 Nov 22 15:00 reports
+-rwxrwxrwx 1 root root 1438 Nov 22 15:00 teardown.sh
+drwxrwxrwx 1 root root 4096 Nov 22 15:09 tests
+drwxrwxrwx 1 root root 4096 Nov 22 14:59 tools
+bash: git: command not found
+[?2004hroot@2712d8825857:/app# cat teardown.sh; printf '\n--- report helper ---\n'; cat lib/report.sh; printf '\n--- configuration ---\n'; cat conf/previews.conf
+[?2004l#!/usr/bin/env bash
+# teardown.sh - remove a preview environment's cloud resources.
+#
+#   ./teardown.sh <env> [--dry-run]
+#
+# <env> is a preview env from conf/previews.conf (e.g. pr-482). Resources are
+# found with the env's label selector and deleted through cloudctl.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/inventory.sh
+source "$ROOT/lib/inventory.sh"
+# shellcheck source=lib/order.sh
+source "$ROOT/lib/order.sh"
+# shellcheck source=lib/report.sh
+source "$ROOT/lib/report.sh"
+
+usage() {
+    echo "usage: $0 <env> [--dry-run]" >&2
+    exit 2
+}
+
+[[ $# -ge 1 ]] || usage
+ENV_ARG="$1"; shift
+DRY_RUN=0
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run) DRY_RUN=1 ;;
+        *) usage ;;
+    esac
+done
+
+load_env_config "$ENV_ARG"
+echo "teardown: env=$ENV_NAME project=$ENV_PROJECT selector=$ENV_SELECTOR"
+
+inventory="$(inventory_collect "$ENV_SELECTOR")"
+echo "teardown: $(printf '%s\n' "$inventory" | grep -c . || true) resource(s) found"
+
+# TODO(PLAT-311): volumes have to be detached before they can be deleted.
+# TODO(PLAT-311): make re-runs safe and write the report (lib/report.sh).
+printf '%s\n' "$inventory" | order_resources | while IFS=$'\t' read -r id kind name; do
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        echo "would delete $kind $id ($name)"
+        continue
+    fi
+    echo "deleting $kind $id ($name)"
+    "$CLOUDCTL" delete "$id"
+done
+
+echo "teardown: done"
+
+--- report helper ---
+# shellcheck shell=bash
+# Teardown report: one markdown file per env under $REPORT_DIR.
+#
+#   report_init ENV           start a new report (truncates the scratch rows)
+#   report_add ACTION ID KIND NAME [NOTE]
+#   report_write              render reports/<env>.md, prints its path
+
+REPORT_DIR="${REPORT_DIR:-$ROOT/reports}"
+_REPORT_ENV=""
+_REPORT_ROWS=""
+
+report_init() {
+    _REPORT_ENV="$1"
+    mkdir -p "$REPORT_DIR"
+    _REPORT_ROWS="$(mktemp)"
+}
+
+report_add() {
+    [[ -n "$_REPORT_ROWS" ]] || { echo "report: report_init not called" >&2; return 1; }
+    local action="$1" id="$2" kind="$3" name="$4" note="${5:-}"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$action" "$id" "$kind" "$name" "$note" >> "$_REPORT_ROWS"
+}
+
+report_path() {
+    echo "$REPORT_DIR/${_REPORT_ENV}.md"
+}
+
+report_write() {
+    local out action id kind name note
+    out="$(report_path)"
+    {
+        echo "# Teardown report: ${_REPORT_ENV}"
+        echo
+        echo "- generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "- selector: ${ENV_SELECTOR:-?}"
+        echo
+        if [[ ! -s "$_REPORT_ROWS" ]]; then
+            echo "Nothing to do: no resources matched."
+        else
+            echo "| action | id | kind | name | note |"
+            echo "|---|---|---|---|---|"
+            while IFS=$'\t' read -r action id kind name note; do
+                echo "| $action | $id | $kind | $name | $note |"
+            done < "$_REPORT_ROWS"
+        fi
+    } > "$out"
+    rm -f "$_REPORT_ROWS"
+    echo "$out"
+}
+
+--- configuration ---
+# Preview environments known to the teardown tool.
+# env       project    selector (passed to `cloudctl list --selector`)
+pr-480      checkout   project=checkout,env=pr-480
+pr-482      checkout   project=checkout,env=pr-482
+pr-77       ledger     project=ledger,env=pr-77
+[?2004hroot@2712d8825857:/app# cat tests/test_teardown.sh; printf '\n--- cloudctl help ---\n'; cloudctl --help
+[?2004l#!/usr/bin/env bash
+# End-to-end test of teardown.sh against a throwaway copy of the fixture account.
+#   bash tests/test_teardown.sh
+set -uo pipefail
+
+APP_ROOT="${APP_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+FIXTURES="${FIXTURES:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures}"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+export CLOUDCTL_STATE="$WORK/account"
+export REPORT_DIR="$WORK/reports"
+export PREVIEWS_CONF="$FIXTURES/previews.conf"
+mkdir -p "$CLOUDCTL_STATE"
+cp "$FIXTURES/account.json" "$CLOUDCTL_STATE/state.json"
+
+failures=0
+check() {  # check DESCRIPTION COMMAND...
+    local desc="$1"; shift
+    if "$@"; then echo "ok   - $desc"; else echo "FAIL - $desc"; failures=$((failures + 1)); fi
+}
+ids_for() {  # ids_for SELECTOR
+    cloudctl list --selector "$1" --json | jq -r '.[].id' | sort
+}
+
+before_101="$(ids_for project=checkout,env=pr-101)"
+before_102="$(ids_for project=checkout,env=pr-102)"
+
+(cd "$APP_ROOT" && ./teardown.sh pr-101) > "$WORK/run1.out" 2>&1
+rc1=$?
+sed 's/^/    run1| /' "$WORK/run1.out"
+check "first run exits 0" test "$rc1" -eq 0
+check "every pr-101 resource is gone" test -z "$(ids_for project=checkout,env=pr-101)"
+check "pr-102 is untouched" test "$(ids_for project=checkout,env=pr-102)" = "$before_102"
+
+report="$REPORT_DIR/pr-101.md"
+check "report written to reports/pr-101.md" test -s "$report"
+for id in $before_101; do
+    check "report lists $id" grep -qs -- "$id" "$report"
+done
+
+log_lines="$(wc -l < "$CLOUDCTL_STATE/calls.log")"
+(cd "$APP_ROOT" && ./teardown.sh pr-101) > "$WORK/run2.out" 2>&1
+rc2=$?
+sed 's/^/    run2| /' "$WORK/run2.out"
+check "second run exits 0" test "$rc2" -eq 0
+check "second run says there is nothing to do" grep -qi "nothing to do" "$WORK/run2.out"
+changes="$(tail -n +"$((log_lines + 1))" "$CLOUDCTL_STATE/calls.log" | jq -c 'select(.effects | length > 0)')"
+check "second run changed nothing" test -z "$changes"
+
+echo
+if [[ "$failures" -eq 0 ]]; then echo "all checks passed"; else echo "$failures check(s) failed"; exit 1; fi
+
+--- cloudctl help ---
+cloudctl - preview account CLI
+
+usage:
+  cloudctl list [--kind KIND] [--selector K=V[,K=V...]] [--match GLOB] [--json]
+  cloudctl describe ID|NAME [--json]
+  cloudctl deps ID|NAME [--json]       what depends on a resource
+  cloudctl delete ID|NAME... [--force] [--dry-run]
+  cloudctl delete (--selector K=V[,...] | --match GLOB) [--kind KIND] [--force] [--dry-run]
+  cloudctl volume detach VOLUME
+  cloudctl lb deregister LB INSTANCE
+
+kinds: network, subnet, instance, volume, lb, dns
+labels: every resource carries project, env and owner labels; preview envs also
+        carry an expires=YYYY-MM-DD label
+
+delete:
+  A resource that still has dependents is refused with DependencyViolation (exit 4):
+  networks with subnets; subnets with instances or load balancers; instances with
+  attached volumes, load-balancer registrations or DNS records; load balancers with
+  DNS records; volumes that are still attached.
+  --force      cascade: detach attached volumes, deregister from load balancers and
+               delete every dependent resource first, then delete the target
+  --selector   bulk delete of every resource whose labels match
+  --match      bulk delete of every resource whose name matches GLOB (e.g. 'pr-*')
+  --kind       restrict a bulk delete to one kind
+  --dry-run    print what would happen, change nothing
+
+exit codes: 0 ok, 2 usage, 3 not found, 4 dependency violation
+account data: $CLOUDCTL_STATE (default /var/tmp/mockcloud)
+
+[?2004hroot@2712d8825857:/app# cat lib/inventory.sh lib/order.sh; printf '\n--- fixture config ---\n'; cat tests/fixtures/previews.conf; printf '\n--- fixture resources ---\n'; cat tests/fixtures/account.json; printf '\n--- other files ---\n'; find tools tests reports -maxdepth 2 -type f -print
+[?2004l# shellcheck shell=bash
+# Inventory helpers: map a preview env to its label selector and list what it owns.
+#
+# Environment overrides:
+#   CLOUDCTL        cloudctl binary to call (default: cloudctl on PATH)
+#   PREVIEWS_CONF   env -> selector mapping (default: conf/previews.conf)
+
+CLOUDCTL="${CLOUDCTL:-cloudctl}"
+PREVIEWS_CONF="${PREVIEWS_CONF:-$ROOT/conf/previews.conf}"
+
+# load_env_config ENV
+# Sets ENV_NAME, ENV_PROJECT and ENV_SELECTOR from the config file.
+load_env_config() {
+    local want="$1" env project selector
+    [[ -r "$PREVIEWS_CONF" ]] || { echo "inventory: cannot read $PREVIEWS_CONF" >&2; return 1; }
+    while read -r env project selector _; do
+        [[ -z "$env" || "$env" == \#* ]] && continue
+        if [[ "$env" == "$want" ]]; then
+            ENV_NAME="$env"
+            ENV_PROJECT="$project"
+            ENV_SELECTOR="$selector"
+            return 0
+        fi
+    done < "$PREVIEWS_CONF"
+    echo "inventory: unknown preview env '$want' (see $PREVIEWS_CONF)" >&2
+    return 1
+}
+
+# inventory_collect SELECTOR
+# Prints one line per resource: "<id>\t<kind>\t<name>".
+inventory_collect() {
+    local selector="$1"
+    "$CLOUDCTL" list --selector "$selector" --json \
+        | jq -r '.[] | [.id, .kind, .name] | @tsv'
+}
+
+# inventory_json ID
+# Full JSON description of one resource (includes "dependents": [ids]).
+inventory_json() {
+    "$CLOUDCTL" describe "$1" --json
+}
+
+# inventory_field ID FIELD
+# Prints one top-level field of a resource ("" when unset).
+inventory_field() {
+    inventory_json "$1" | jq -r --arg f "$2" '.[$f] // empty'
+}
+
+# inventory_exists ID -> 0 if the resource is still there
+inventory_exists() {
+    "$CLOUDCTL" describe "$1" >/dev/null 2>&1
+}
+# shellcheck shell=bash
+# Ordering of resources for teardown.
+#
+# Resources have to go in reverse dependency order: cloudctl refuses to delete
+# anything that still has dependents (see `cloudctl --help`).
+
+# order_rank KIND -> numeric rank; lower ranks are processed first.
+# NOTE: copied from the provisioning side (create order) -- still needs to be
+# turned into a teardown order and to cover every kind we provision.
+order_rank() {
+    case "$1" in
+        network)  echo 10 ;;
+        subnet)   echo 20 ;;
+        instance) echo 30 ;;
+        *)        echo 99 ;;
+    esac
+}
+
+# order_resources < "<id>\t<kind>\t<name>" lines
+# Prints the same lines sorted by rank (stable within a rank).
+order_resources() {
+    local id kind name
+    while IFS=$'\t' read -r id kind name; do
+        [[ -z "$id" ]] && continue
+        printf '%s\t%s\t%s\t%s\n' "$(order_rank "$kind")" "$id" "$kind" "$name"
+    done | sort -s -n -k1,1 | cut -f2-
+}
+
+--- fixture config ---
+# env       project    selector
+pr-101      checkout   project=checkout,env=pr-101
+pr-102      checkout   project=checkout,env=pr-102
+
+--- fixture resources ---
+{
+  "account": "fixture",
+  "resources": {
+    "dns-1017": {
+      "created": "2026-10-01T09:03:20",
+      "id": "dns-1017",
+      "kind": "dns",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "pr-101.checkout.preview.internal",
+      "status": "active",
+      "target": "lb-1016"
+    },
+    "dns-1024": {
+      "created": "2026-10-02T09:03:20",
+      "id": "dns-1024",
+      "kind": "dns",
+      "labels": {
+        "env": "pr-102",
+        "expires": "2026-10-09",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "pr-102.checkout.preview.internal",
+      "status": "active",
+      "target": "i-1023"
+    },
+    "i-1013": {
+      "created": "2026-10-01T09:02:00",
+      "id": "i-1013",
+      "image": "checkout-web:pr-101",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-web",
+      "status": "running",
+      "subnet": "subnet-1012"
+    },
+    "i-1014": {
+      "created": "2026-10-01T09:02:05",
+      "id": "i-1014",
+      "image": "checkout-worker:pr-101",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-worker",
+      "status": "running",
+      "subnet": "subnet-1012"
+    },
+    "i-1023": {
+      "created": "2026-10-02T09:02:00",
+      "id": "i-1023",
+      "image": "checkout-web:pr-102",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-102",
+        "expires": "2026-10-09",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-102-web",
+      "status": "running",
+      "subnet": "subnet-1022"
+    },
+    "lb-1016": {
+      "created": "2026-10-01T09:03:00",
+      "id": "lb-1016",
+      "kind": "lb",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-lb",
+      "status": "active",
+      "subnet": "subnet-1012",
+      "targets": [
+        "i-1013"
+      ]
+    },
+    "net-1011": {
+      "cidr": "10.11.0.0/16",
+      "created": "2026-10-01T09:00:00",
+      "id": "net-1011",
+      "kind": "network",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-vpc",
+      "status": "available"
+    },
+    "net-1021": {
+      "cidr": "10.12.0.0/16",
+      "created": "2026-10-02T09:00:00",
+      "id": "net-1021",
+      "kind": "network",
+      "labels": {
+        "env": "pr-102",
+        "expires": "2026-10-09",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-102-vpc",
+      "status": "available"
+    },
+    "subnet-1012": {
+      "cidr": "10.11.1.0/24",
+      "created": "2026-10-01T09:00:30",
+      "id": "subnet-1012",
+      "kind": "subnet",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-app",
+      "network": "net-1011",
+      "status": "available"
+    },
+    "subnet-1022": {
+      "cidr": "10.12.1.0/24",
+      "created": "2026-10-02T09:00:30",
+      "id": "subnet-1022",
+      "kind": "subnet",
+      "labels": {
+        "env": "pr-102",
+        "expires": "2026-10-09",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-102-app",
+      "network": "net-1021",
+      "status": "available"
+    },
+    "vol-1015": {
+      "attached_to": "i-1014",
+      "created": "2026-10-01T09:01:30",
+      "id": "vol-1015",
+      "kind": "volume",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-pgdata",
+      "size_gb": 20,
+      "status": "in-use"
+    }
+  }
+}
+--- other files ---
+tools/cloudctl.py
+tests/test_teardown.sh
+tests/fixtures/previews.conf
+tests/fixtures/account.json
+reports/.gitkeep
+[?2004hroot@2712d8825857:/app# printf '\n--- pr-482 resources (read only) ---\n'; cloudctl list --selector project=checkout,env=pr-482 --json; printf '\n--- tool location ---\n'; command -v cloudctl; command -v jq; env | grep -E '^(CLOUDCTL|REPORT_DIR|PREVIEWS_CONF)=' || true
+[?2004l
+--- pr-482 resources (read only) ---
+[
+  {
+    "created": "2026-11-09T14:05:40",
+    "id": "dns-4827",
+    "kind": "dns",
+    "labels": {
+      "env": "pr-482",
+      "expires": "2026-11-21",
+      "owner": "checkout-team",
+      "project": "checkout"
+    },
+    "name": "pr-482.checkout.preview.internal",
+    "status": "active",
+    "target": "lb-4826"
+  },
+  {
+    "created": "2026-11-09T14:04:02",
+    "id": "i-4823",
+    "image": "checkout-web:pr-482",
+    "kind": "instance",
+    "labels": {
+      "env": "pr-482",
+      "expires": "2026-11-21",
+      "owner": "checkout-team",
+      "project": "checkout"
+    },
+    "name": "checkout-pr-482-web",
+    "status": "running",
+    "subnet": "subnet-4822"
+  },
+  {
+    "created": "2026-11-09T14:04:05",
+    "id": "i-4824",
+    "image": "checkout-worker:pr-482",
+    "kind": "instance",
+    "labels": {
+      "env": "pr-482",
+      "expires": "2026-11-21",
+      "owner": "checkout-team",
+      "project": "checkout"
+    },
+    "name": "checkout-pr-482-worker",
+    "status": "running",
+    "subnet": "subnet-4822"
+  },
+  {
+    "created": "2026-11-09T14:05:12",
+    "id": "lb-4826",
+    "kind": "lb",
+    "labels": {
+      "env": "pr-482",
+      "expires": "2026-11-21",
+      "owner": "checkout-team",
+      "project": "checkout"
+    },
+    "name": "checkout-pr-482-lb",
+    "status": "active",
+    "subnet": "subnet-4822",
+    "targets": [
+      "i-4823"
+    ]
+  },
+  {
+    "cidr": "10.82.0.0/16",
+    "created": "2026-11-09T14:02:11",
+    "id": "net-4821",
+    "kind": "network",
+    "labels": {
+      "env": "pr-482",
+      "expires": "2026-11-21",
+      "owner": "checkout-team",
+      "project": "checkout"
+    },
+    "name": "checkout-pr-482-vpc",
+    "status": "available"
+  },
+  {
+    "cidr": "10.82.1.0/24",
+    "created": "2026-11-09T14:02:40",
+    "id": "subnet-4822",
+    "kind": "subnet",
+    "labels": {
+      "env": "pr-482",
+      "expires": "2026-11-21",
+      "owner": "checkout-team",
+      "project": "checkout"
+    },
+    "name": "checkout-pr-482-app",
+    "network": "net-4821",
+    "status": "available"
+  },
+  {
+    "attached_to": "i-4824",
+    "created": "2026-11-09T14:03:30",
+    "id": "vol-4825",
+    "kind": "volume",
+    "labels": {
+      "env": "pr-482",
+      "expires": "2026-11-21",
+      "owner": "checkout-team",
+      "project": "checkout"
+    },
+    "name": "checkout-pr-482-pgdata",
+    "size_gb": 20,
+    "status": "in-use"
+  }
+]
+
+--- tool location ---
+/usr/local/bin/cloudctl
+/usr/bin/jq
+[?2004hroot@2712d8825857:/app# grep -n -A65 -B10 'def cmd_volume\|def cmd_delete\|def cmd_describe\|def detach' tools/cloudctl.py
+[?2004l104-
+105-def brief(r):
+106-    return "%s %s (%s)" % (r["kind"], r["id"], r["name"])
+107-
+108-
+109-def effect(effects, r, action, detail=""):
+110-    effects.append({"id": r["id"], "kind": r["kind"], "name": r["name"],
+111-                    "labels": r.get("labels", {}), "action": action, "detail": detail})
+112-
+113-
+114:def detach(state, vol, effects):
+115-    if not vol.get("attached_to"):
+116-        raise CloudError(2, "volume %s is not attached" % vol["id"])
+117-    old = vol["attached_to"]
+118-    vol["attached_to"] = None
+119-    vol["status"] = "available"
+120-    effect(effects, vol, "detached", "from " + old)
+121-
+122-
+123-def delete(state, r, force, effects):
+124-    res = state["resources"]
+125-    if r["kind"] == "volume" and r.get("attached_to"):
+126-        if not force:
+127-            raise CloudError(4, "DependencyViolation: %s is attached to instance %s; detach it first"
+128-                             % (brief(r), r["attached_to"]))
+129-        detach(state, r, effects)
+130-    deps = dependents(state, r["id"])
+131-    if deps and not force:
+132-        raise CloudError(4, "DependencyViolation: %s has dependent resources: %s"
+133-                         % (brief(r), ", ".join(brief(d) for d in deps)))
+134-    for d in deps:
+135-        if d["id"] not in res:
+136-            continue
+137-        if d["kind"] == "volume":
+138-            detach(state, d, effects)
+139-        elif d["kind"] == "lb" and r["id"] in d.get("targets", []):
+140-            d["targets"].remove(r["id"])
+141-            effect(effects, d, "deregistered", r["id"])
+142-        else:
+143-            delete(state, d, True, effects)
+144-    del res[r["id"]]
+145-    effect(effects, r, "deleted")
+146-
+147-
+148-def parse_selector(text):
+149-    sel = {}
+150-    for part in text.split(","):
+151-        if "=" not in part:
+152-            raise CloudError(2, "bad selector %r (want k=v[,k=v])" % text)
+153-        k, v = part.split("=", 1)
+154-        sel[k.strip()] = v.strip()
+155-    return sel
+156-
+157-
+158-def select(state, kind=None, selector=None, match=None):
+159-    out = []
+160-    for r in sorted(state["resources"].values(), key=lambda r: r["id"]):
+161-        if kind and r["kind"] != kind:
+162-            continue
+163-        if selector and any(r["labels"].get(k) != v for k, v in selector.items()):
+164-            continue
+165-        if match and not fnmatch.fnmatch(r["name"], match):
+166-            continue
+167-        out.append(r)
+168-    return out
+169-
+170-
+171-def show(state, r):
+172-    lines = ["%-12s %s" % (k + ":", r[k]) for k in ("id", "kind", "name", "status") if k in r]
+173-    lines.append("%-12s %s" % ("labels:", ",".join("%s=%s" % kv for kv in sorted(r["labels"].items()))))
+174-    for k in ("network", "subnet", "attached_to", "targets", "target", "size_gb", "created"):
+175-        if k in r:
+176-            lines.append("%-12s %s" % (k + ":", r[k]))
+177-    deps = dependents(state, r["id"])
+178-    lines.append("dependents:  " + (", ".join(brief(d) for d in deps) if deps else "none"))
+179-    return "\n".join(lines)
+[?2004hroot@2712d8825857:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('lib/order.sh')
+[?2004l[?2004h> s = p.read_text().replace('# NOTE: copied from the provisioning side (create order) -- still needs to be\n# turned into a teardown order and to cover every kind we provision.\n', '')
+[?2004l[?2004h> s = s.replace('        network)  echo 10 ;;\n        subnet)   echo 20 ;;\n        instance) echo 30 ;;', '        dns)      echo 10 ;;\n        lb)       echo 20 ;;\n        volume)   echo 30 ;;\n        instance) echo 40 ;;\n        subnet)   echo 50 ;;\n        network)  echo 60 ;;')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> p = Path('teardown.sh')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s[:s.index('# TODO(PLAT-311)')] + '''# Sort before making changes so inventory/ordering failures cannot be hidden by
+[?2004l[?2004h> # process substitution or a loop running in a pipeline subshell.
+[?2004l[?2004h> ordered_inventory="$(printf '%s\\n' "$inventory" | order_resources)"
+[?2004l[?2004h> 
+[?2004l[?2004h> if [[ -z "$ordered_inventory" ]]; then
+[?2004l[?2004h>     echo "teardown: nothing to do"
+[?2004l[?2004h>     # Preserve the deletion audit from an earlier successful run.
+[?2004l[?2004h>     if [[ "$DRY_RUN" -eq 0 && ! -f "$REPORT_DIR/$ENV_NAME.md" ]]; then
+[?2004l[?2004h>         report_init "$ENV_NAME"
+[?2004l[?2004h>         report_write
+[?2004l[?2004h>     fi
+[?2004l[?2004h>     exit 0
+[?2004l[?2004h> fi
+[?2004l[?2004h> 
+[?2004l[?2004h> if [[ "$DRY_RUN" -eq 0 ]]; then
+[?2004l[?2004h>     report_init "$ENV_NAME"
+[?2004l[?2004h>     # Keep a record of successful deletions even if a later operation fails.
+[?2004l[?2004h>     trap 'report_write' EXIT
+[?2004l[?2004h> fi
+[?2004l[?2004h> 
+[?2004l[?2004h> while IFS=$'\\t' read -r id kind name; do
+[?2004l[?2004h>     [[ -n "$id" ]] || continue
+[?2004l[?2004h>     if [[ "$DRY_RUN" -eq 1 ]]; then
+[?2004l[?2004h>         [[ "$kind" != volume ]] || echo "would detach volume $id ($name) if attached"
+[?2004l[?2004h>         echo "would delete $kind $id ($name)"
+[?2004l[?2004h>         continue
+[?2004l[?2004h>     fi
+[?2004l[?2004h>     if [[ "$kind" == volume ]]; then
+[?2004l[?2004h>         attached_to="$(inventory_field "$id" attached_to)"
+[?2004l[?2004h>         if [[ -n "$attached_to" ]]; then
+[?2004l[?2004h>             echo "detaching volume $id ($name) from $attached_to"
+[?2004l[?2004h>             "$CLOUDCTL" volume detach "$id"
+[?2004l[?2004h>         fi
+[?2004l[?2004h>     fi
+[?2004l[?2004h>     echo "deleting $kind $id ($name)"
+[?2004l[?2004h>     "$CLOUDCTL" delete "$id"
+[?2004l[?2004h>     report_add deleted "$id" "$kind" "$name"
+[?2004l[?2004h> done <<< "$ordered_inventory"
+[?2004l[?2004h> 
+[?2004l[?2004h> if [[ "$DRY_RUN" -eq 0 ]]; then
+[?2004l[?2004h>     report_write
+[?2004l[?2004h>     trap - EXIT
+[?2004l[?2004h> fi
+[?2004l[?2004h> echo "teardown: done"
+[?2004l[?2004h> '''
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@2712d8825857:/app# bash -n teardown.sh lib/*.sh
+[?2004l[?2004hroot@2712d8825857:/app# bash tests/test_teardown.sh
+[?2004l    run1| teardown: env=pr-101 project=checkout selector=project=checkout,env=pr-101
+    run1| teardown: 7 resource(s) found
+    run1| deleting dns dns-1017 (pr-101.checkout.preview.internal)
+    run1| deleted dns dns-1017 (pr-101.checkout.preview.internal)
+    run1| deleting lb lb-1016 (checkout-pr-101-lb)
+    run1| deleted lb lb-1016 (checkout-pr-101-lb)
+    run1| detaching volume vol-1015 (checkout-pr-101-pgdata) from i-1014
+    run1| detached volume vol-1015
+    run1| deleting volume vol-1015 (checkout-pr-101-pgdata)
+    run1| deleted volume vol-1015 (checkout-pr-101-pgdata)
+    run1| deleting instance i-1013 (checkout-pr-101-web)
+    run1| deleted instance i-1013 (checkout-pr-101-web)
+    run1| deleting instance i-1014 (checkout-pr-101-worker)
+    run1| deleted instance i-1014 (checkout-pr-101-worker)
+    run1| deleting subnet subnet-1012 (checkout-pr-101-app)
+    run1| deleted subnet subnet-1012 (checkout-pr-101-app)
+    run1| deleting network net-1011 (checkout-pr-101-vpc)
+    run1| deleted network net-1011 (checkout-pr-101-vpc)
+    run1| /tmp/tmp.QHu42RMfyy/reports/pr-101.md
+    run1| teardown: done
+ok   - first run exits 0
+ok   - every pr-101 resource is gone
+ok   - pr-102 is untouched
+ok   - report written to reports/pr-101.md
+ok   - report lists dns-1017
+ok   - report lists i-1013
+ok   - report lists i-1014
+ok   - report lists lb-1016
+ok   - report lists net-1011
+ok   - report lists subnet-1012
+ok   - report lists vol-1015
+    run2| teardown: env=pr-101 project=checkout selector=project=checkout,env=pr-101
+    run2| teardown: 0 resource(s) found
+    run2| teardown: nothing to do
+ok   - second run exits 0
+ok   - second run says there is nothing to do
+ok   - second run changed nothing
+
+all checks passed
+[?2004hroot@2712d8825857:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('tests/test_teardown.sh')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> needle = '(cd "$APP_ROOT" && ./teardown.sh pr-101) > "$WORK/run1.out" 2>&1'
+[?2004l[?2004h> s = s.replace(needle, '''cp "$CLOUDCTL_STATE/state.json" "$WORK/before-dry-run.json"
+[?2004l[?2004h> (cd "$APP_ROOT" && ./teardown.sh pr-101 --dry-run) > "$WORK/dry-run.out" 2>&1
+[?2004l[?2004h> check "dry run exits 0" test "$?" -eq 0
+[?2004l[?2004h> check "dry run changes no resources" cmp -s "$WORK/before-dry-run.json" "$CLOUDCTL_STATE/state.json"
+[?2004l[?2004h> check "dry run writes no deletion report" test ! -e "$REPORT_DIR/pr-101.md"
+[?2004l[?2004h> 
+[?2004l[?2004h> ''' + needle)
+[?2004l[?2004h> s = s.replace('log_lines="$(wc -l < "$CLOUDCTL_STATE/calls.log")"', '''while IFS=$'\\t' read -r id kind name; do
+[?2004l[?2004h>     check "report lists id, kind and name for $id" grep -Fqs -- "| deleted | $id | $kind | $name |" "$report"
+[?2004l[?2004h> done < <(jq -r '.resources[] | select(.labels.env == "pr-101") | [.id, .kind, .name] | @tsv' "$FIXTURES/account.json")
+[?2004l[?2004h> cp "$report" "$WORK/first-report.md"
+[?2004l[?2004h> 
+[?2004l[?2004h> log_lines="$(wc -l < "$CLOUDCTL_STATE/calls.log")"''')
+[?2004l[?2004h> s = s.replace('check "second run changed nothing" test -z "$changes"', '''check "second run changed nothing" test -z "$changes"
+[?2004l[?2004h> check "second run preserves deletion report" cmp -s "$WORK/first-report.md" "$report"
+[?2004l[?2004h> 
+[?2004l[?2004h> # A previous attempt may have detached a volume but not yet deleted it.
+[?2004l[?2004h> jq '.resources["vol-1015"].attached_to = null | .resources["vol-1015"].status = "available"' \\
+[?2004l[?2004h>     "$FIXTURES/account.json" > "$CLOUDCTL_STATE/state.json"
+[?2004l[?2004h> (cd "$APP_ROOT" && ./teardown.sh pr-101) > "$WORK/detached.out" 2>&1
+[?2004l[?2004h> check "teardown handles an already-detached volume" test "$?" -eq 0
+[?2004l[?2004h> check "already-detached volume and its environment are gone" test -z "$(ids_for project=checkout,env=pr-101)"
+[?2004l[?2004h> check "other environment is still untouched" test "$(ids_for project=checkout,env=pr-102)" = "$before_102"
+[?2004l[?2004h> 
+[?2004l[?2004h> # pr-102 has DNS pointing directly at its instance rather than a load balancer.
+[?2004l[?2004h> (cd "$APP_ROOT" && ./teardown.sh pr-102) > "$WORK/direct-dns.out" 2>&1
+[?2004l[?2004h> check "teardown handles DNS pointing directly at an instance" test "$?" -eq 0
+[?2004l[?2004h> check "every pr-102 resource is gone" test -z "$(ids_for project=checkout,env=pr-102)"''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@2712d8825857:/app# bash -n teardown.sh lib/*.sh tests/test_teardown.sh
+[?2004l[?2004hroot@2712d8825857:/app# bash tests/test_teardown.sh
+[?2004lok   - dry run exits 0
+ok   - dry run changes no resources
+ok   - dry run writes no deletion report
+    run1| teardown: env=pr-101 project=checkout selector=project=checkout,env=pr-101
+    run1| teardown: 7 resource(s) found
+    run1| deleting dns dns-1017 (pr-101.checkout.preview.internal)
+    run1| deleted dns dns-1017 (pr-101.checkout.preview.internal)
+    run1| deleting lb lb-1016 (checkout-pr-101-lb)
+    run1| deleted lb lb-1016 (checkout-pr-101-lb)
+    run1| detaching volume vol-1015 (checkout-pr-101-pgdata) from i-1014
+    run1| detached volume vol-1015
+    run1| deleting volume vol-1015 (checkout-pr-101-pgdata)
+    run1| deleted volume vol-1015 (checkout-pr-101-pgdata)
+    run1| deleting instance i-1013 (checkout-pr-101-web)
+    run1| deleted instance i-1013 (checkout-pr-101-web)
+    run1| deleting instance i-1014 (checkout-pr-101-worker)
+    run1| deleted instance i-1014 (checkout-pr-101-worker)
+    run1| deleting subnet subnet-1012 (checkout-pr-101-app)
+    run1| deleted subnet subnet-1012 (checkout-pr-101-app)
+    run1| deleting network net-1011 (checkout-pr-101-vpc)
+    run1| deleted network net-1011 (checkout-pr-101-vpc)
+    run1| /tmp/tmp.mM0etPCvyi/reports/pr-101.md
+    run1| teardown: done
+ok   - first run exits 0
+ok   - every pr-101 resource is gone
+ok   - pr-102 is untouched
+ok   - report written to reports/pr-101.md
+ok   - report lists dns-1017
+ok   - report lists i-1013
+ok   - report lists i-1014
+ok   - report lists lb-1016
+ok   - report lists net-1011
+ok   - report lists subnet-1012
+ok   - report lists vol-1015
+ok   - report lists id, kind and name for dns-1017
+ok   - report lists id, kind and name for i-1013
+ok   - report lists id, kind and name for i-1014
+ok   - report lists id, kind and name for lb-1016
+ok   - report lists id, kind and name for net-1011
+ok   - report lists id, kind and name for subnet-1012
+ok   - report lists id, kind and name for vol-1015
+    run2| teardown: env=pr-101 project=checkout selector=project=checkout,env=pr-101
+    run2| teardown: 0 resource(s) found
+    run2| teardown: nothing to do
+ok   - second run exits 0
+ok   - second run says there is nothing to do
+ok   - second run changed nothing
+ok   - second run preserves deletion report
+ok   - teardown handles an already-detached volume
+ok   - already-detached volume and its environment are gone
+ok   - other environment is still untouched
+ok   - teardown handles DNS pointing directly at an instance
+ok   - every pr-102 resource is gone
+
+all checks passed
+[?2004hroot@2712d8825857:/app# (
+[?2004lreport complete.')
+PY
+cp reports/pr-482.md "$work/report.md"
+./teardown.sh pr-482
+cmp reports/pr-482.md "$work/report.md"
+printf '\n--- final report ---\n'
+cat reports/pr-482.md
+)
+[?2004h> set -e
+[?2004l[?2004h> work="$(mktemp -d)"
+[?2004l[?2004h> trap 'rm -rf "$work"' EXIT
+[?2004l[?2004h> cloudctl list --json > "$work/before.json"
+[?2004l[?2004h> ./teardown.sh pr-482
+[?2004l[?2004h> cloudctl list --json > "$work/after.json"
+[?2004l[?2004h> python3 - "$work/before.json" "$work/after.json" reports/pr-482.md <<'PY'
+[?2004l[?2004h> import json
+[?2004l[?2004h> import sys
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> before, after = [json.loads(Path(p).read_text()) for p in sys.argv[1:3]]
+[?2004l[?2004h> def target(r):
+[?2004l[?2004h>     return r['labels'].get('project') == 'checkout' and r['labels'].get('env') == 'pr-482'
+[?2004l[?2004h> removed = [r for r in before if target(r)]
+[?2004l[?2004h> assert len(removed) == 7, f'Expected seven target resources, found {len(removed)}'
+[?2004l[?2004h> assert not any(target(r) for r in after), 'Target resources remain'
+[?2004l[?2004h> assert {r['id']: r for r in before if not target(r)} == {r['id']: r for r in after}, 'Non-target resources changed'
+[?2004l[?2004h> report = Path(sys.argv[3]).read_text()
+[?2004l[?2004h> for r in removed:
+[?2004l[?2004h>     assert f"| deleted | {r['id']} | {r['kind']} | {r['name']} |" in report, f"Missing report row: {r['id']}"
+[?2004l[?2004h> print('Verified: all seven pr-482 resources removed; all other resources unchanged; report complete.')
+[?2004l[?2004h> PY
+[?2004l[?2004h> cp reports/pr-482.md "$work/report.md"
+[?2004l[?2004h> ./teardown.sh pr-482
+[?2004l[?2004h> cmp reports/pr-482.md "$work/report.md"
+[?2004l[?2004h> printf '\n--- final report ---\n'
+[?2004l[?2004h> cat reports/pr-482.md
+[?2004l[?2004h> )
+[?2004lteardown: env=pr-482 project=checkout selector=project=checkout,env=pr-482
+teardown: 7 resource(s) found
+deleting dns dns-4827 (pr-482.checkout.preview.internal)
+deleted dns dns-4827 (pr-482.checkout.preview.internal)
+deleting lb lb-4826 (checkout-pr-482-lb)
+deleted lb lb-4826 (checkout-pr-482-lb)
+detaching volume vol-4825 (checkout-pr-482-pgdata) from i-4824
+detached volume vol-4825
+deleting volume vol-4825 (checkout-pr-482-pgdata)
+deleted volume vol-4825 (checkout-pr-482-pgdata)
+deleting instance i-4823 (checkout-pr-482-web)
+deleted instance i-4823 (checkout-pr-482-web)
+deleting instance i-4824 (checkout-pr-482-worker)
+deleted instance i-4824 (checkout-pr-482-worker)
+deleting subnet subnet-4822 (checkout-pr-482-app)
+error: DependencyViolation: subnet subnet-4822 (checkout-pr-482-app) has dependent resources: instance i-0771 (ledger-pr-77-worker)
+/app/reports/pr-482.md
+[?2004hroot@2712d8825857:/app# cloudctl describe subnet-4822 --json; cloudctl describe net-4821 --json; cloudctl describe i-0771 --json; printf '\n--- ledger preview ---\n'; cloudctl list --selector project=ledger,env=pr-77 --json; printf '\n--- remaining checkout preview ---\n'; cloudctl list --selector project=checkout,env=pr-482 --json; printf '\n--- saved report ---\n'; cat reports/pr-482.md
+[?2004l{
+  "cidr": "10.82.1.0/24",
+  "created": "2026-11-09T14:02:40",
+  "id": "subnet-4822",
+  "kind": "subnet",
+  "labels": {
+    "env": "pr-482",
+    "expires": "2026-11-21",
+    "owner": "checkout-team",
+    "project": "checkout"
+  },
+  "name": "checkout-pr-482-app",
+  "network": "net-4821",
+  "status": "available",
+  "dependents": [
+    "i-0771"
+  ]
+}
+{
+  "cidr": "10.82.0.0/16",
+  "created": "2026-11-09T14:02:11",
+  "id": "net-4821",
+  "kind": "network",
+  "labels": {
+    "env": "pr-482",
+    "expires": "2026-11-21",
+    "owner": "checkout-team",
+    "project": "checkout"
+  },
+  "name": "checkout-pr-482-vpc",
+  "status": "available",
+  "dependents": [
+    "subnet-4822"
+  ]
+}
+{
+  "created": "2026-11-12T10:21:09",
+  "id": "i-0771",
+  "image": "ledger-worker:pr-77",
+  "kind": "instance",
+  "labels": {
+    "env": "pr-77",
+    "expires": "2026-11-15",
+    "owner": "ledger-team",
+    "project": "ledger"
+  },
+  "name": "ledger-pr-77-worker",
+  "status": "running",
+  "subnet": "subnet-4822",
+  "dependents": [
+    "vol-0772"
+  ]
+}
+
+--- ledger preview ---
+[
+  {
+    "created": "2026-11-12T10:22:30",
+    "id": "dns-0776",
+    "kind": "dns",
+    "labels": {
+      "env": "pr-77",
+      "expires": "2026-11-15",
+      "owner": "ledger-team",
+      "project": "ledger"
+    },
+    "name": "pr-77.ledger.preview.internal",
+    "status": "active",
+    "target": "i-0775"
+  },
+  {
+    "created": "2026-11-12T10:21:09",
+    "id": "i-0771",
+    "image": "ledger-worker:pr-77",
+    "kind": "instance",
+    "labels": {
+      "env": "pr-77",
+      "expires": "2026-11-15",
+      "owner": "ledger-team",
+      "project": "ledger"
+    },
+    "name": "ledger-pr-77-worker",
+    "status": "running",
+    "subnet": "subnet-4822"
+  },
+  {
+    "created": "2026-11-12T10:19:58",
+    "id": "i-0775",
+    "image": "ledger-api:pr-77",
+    "kind": "instance",
+    "labels": {
+      "env": "pr-77",
+      "expires": "2026-11-15",
+      "owner": "ledger-team",
+      "project": "ledger"
+    },
+    "name": "ledger-pr-77-api",
+    "status": "running",
+    "subnet": "subnet-0a12"
+  },
+  {
+    "attached_to": "i-0771",
+    "created": "2026-11-12T10:20:44",
+    "id": "vol-0772",
+    "kind": "volume",
+    "labels": {
+      "env": "pr-77",
+      "expires": "2026-11-15",
+      "owner": "ledger-team",
+      "project": "ledger"
+    },
+    "name": "ledger-pr-77-journal",
+    "size_gb": 50,
+    "status": "in-use"
+  }
+]
+
+--- remaining checkout preview ---
+[
+  {
+    "cidr": "10.82.0.0/16",
+    "created": "2026-11-09T14:02:11",
+    "id": "net-4821",
+    "kind": "network",
+    "labels": {
+      "env": "pr-482",
+      "expires": "2026-11-21",
+      "owner": "checkout-team",
+      "project": "checkout"
+    },
+    "name": "checkout-pr-482-vpc",
+    "status": "available"
+  },
+  {
+    "cidr": "10.82.1.0/24",
+    "created": "2026-11-09T14:02:40",
+    "id": "subnet-4822",
+    "kind": "subnet",
+    "labels": {
+      "env": "pr-482",
+      "expires": "2026-11-21",
+      "owner": "checkout-team",
+      "project": "checkout"
+    },
+    "name": "checkout-pr-482-app",
+    "network": "net-4821",
+    "status": "available"
+  }
+]
+
+--- saved report ---
+# Teardown report: pr-482
+
+- generated: 2026-11-22T15:10:45Z
+- selector: project=checkout,env=pr-482
+
+| action | id | kind | name | note |
+|---|---|---|---|---|
+| deleted | dns-4827 | dns | pr-482.checkout.preview.internal |  |
+| deleted | lb-4826 | lb | checkout-pr-482-lb |  |
+| deleted | vol-4825 | volume | checkout-pr-482-pgdata |  |
+| deleted | i-4823 | instance | checkout-pr-482-web |  |
+| deleted | i-4824 | instance | checkout-pr-482-worker |  |
+[?2004hroot@2712d8825857:/app# sed -n '1,110p' tools/cloudctl.py; sed -n '180,390p' tools/cloudctl.py
+[?2004l#!/usr/bin/env python3
+"""cloudctl - command line client for the preview cloud account.
+
+Installed as /usr/local/bin/cloudctl. Account data lives in $CLOUDCTL_STATE
+(default /var/tmp/mockcloud); every invocation is appended to calls.log there.
+"""
+import copy
+import fnmatch
+import json
+import os
+import sys
+import time
+
+STATE_DIR = os.environ.get("CLOUDCTL_STATE", "/var/tmp/mockcloud")
+KINDS = ("network", "subnet", "instance", "volume", "lb", "dns")
+
+USAGE = """cloudctl - preview account CLI
+
+usage:
+  cloudctl list [--kind KIND] [--selector K=V[,K=V...]] [--match GLOB] [--json]
+  cloudctl describe ID|NAME [--json]
+  cloudctl deps ID|NAME [--json]       what depends on a resource
+  cloudctl delete ID|NAME... [--force] [--dry-run]
+  cloudctl delete (--selector K=V[,...] | --match GLOB) [--kind KIND] [--force] [--dry-run]
+  cloudctl volume detach VOLUME
+  cloudctl lb deregister LB INSTANCE
+
+kinds: network, subnet, instance, volume, lb, dns
+labels: every resource carries project, env and owner labels; preview envs also
+        carry an expires=YYYY-MM-DD label
+
+delete:
+  A resource that still has dependents is refused with DependencyViolation (exit 4):
+  networks with subnets; subnets with instances or load balancers; instances with
+  attached volumes, load-balancer registrations or DNS records; load balancers with
+  DNS records; volumes that are still attached.
+  --force      cascade: detach attached volumes, deregister from load balancers and
+               delete every dependent resource first, then delete the target
+  --selector   bulk delete of every resource whose labels match
+  --match      bulk delete of every resource whose name matches GLOB (e.g. 'pr-*')
+  --kind       restrict a bulk delete to one kind
+  --dry-run    print what would happen, change nothing
+
+exit codes: 0 ok, 2 usage, 3 not found, 4 dependency violation
+account data: $CLOUDCTL_STATE (default /var/tmp/mockcloud)
+"""
+
+
+class CloudError(Exception):
+    def __init__(self, code, msg, printed=False):
+        super().__init__(msg)
+        self.code = code
+        self.printed = printed
+
+
+def state_path():
+    return os.path.join(STATE_DIR, "state.json")
+
+
+def load_state():
+    with open(state_path()) as f:
+        return json.load(f)
+
+
+def save_state(state):
+    tmp = state_path() + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f, indent=2, sort_keys=True)
+    os.replace(tmp, state_path())
+
+
+def log_call(argv, code, effects, error, dry_run):
+    entry = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "argv": argv, "exit": code,
+             "dry_run": dry_run, "effects": effects, "error": error}
+    try:
+        with open(os.path.join(STATE_DIR, "calls.log"), "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except OSError:
+        pass
+
+
+def resolve(state, ref):
+    res = state["resources"]
+    if ref in res:
+        return res[ref]
+    named = [r for r in res.values() if r["name"] == ref]
+    if not named:
+        raise CloudError(3, "NotFound: no resource %r" % ref)
+    return named[0]
+
+
+def dependents(state, rid):
+    out = []
+    for o in sorted(state["resources"].values(), key=lambda r: r["id"]):
+        k = o["kind"]
+        if (k == "subnet" and o.get("network") == rid) \
+                or (k in ("instance", "lb") and o.get("subnet") == rid) \
+                or (k == "volume" and o.get("attached_to") == rid) \
+                or (k == "lb" and rid in o.get("targets", [])) \
+                or (k == "dns" and o.get("target") == rid):
+            out.append(o)
+    return out
+
+
+def brief(r):
+    return "%s %s (%s)" % (r["kind"], r["id"], r["name"])
+
+
+def effect(effects, r, action, detail=""):
+    effects.append({"id": r["id"], "kind": r["kind"], "name": r["name"],
+
+
+def take(args, flag, has_value=True):
+    if flag not in args:
+        return None
+    i = args.index(flag)
+    if not has_value:
+        args.pop(i)
+        return True
+    if i + 1 >= len(args):
+        raise CloudError(2, "%s needs a value" % flag)
+    args.pop(i)
+    return args.pop(i)
+
+
+def run(argv, effects):
+    args = list(argv)
+    if not args or args[0] in ("-h", "--help", "help"):
+        print(USAGE)
+        return 0, False
+    cmd = args.pop(0)
+    as_json = bool(take(args, "--json", False))
+    force = bool(take(args, "--force", False))
+    dry = bool(take(args, "--dry-run", False))
+    kind = take(args, "--kind")
+    sel = take(args, "--selector")
+    match = take(args, "--match")
+    if kind and kind not in KINDS:
+        raise CloudError(2, "unknown kind %r" % kind)
+    state = load_state()
+    if cmd == "list":
+        rows = select(state, kind, parse_selector(sel) if sel else None, match)
+        if as_json:
+            print(json.dumps(rows, indent=2))
+        else:
+            for r in rows:
+                lb = r["labels"]
+                print("%-14s %-9s %-36s %-10s %-8s %s" % (r["id"], r["kind"], r["name"], lb.get("project", "-"),
+                                                       lb.get("env", "-"), r.get("status", "-")))
+        return 0, False
+    if cmd in ("describe", "deps"):
+        if len(args) != 1:
+            raise CloudError(2, "usage: cloudctl %s ID|NAME" % cmd)
+        r = resolve(state, args[0])
+        if cmd == "deps":
+            deps = dependents(state, r["id"])
+            print(json.dumps(deps, indent=2) if as_json else "\n".join(brief(d) for d in deps) or "none")
+        else:
+            print(json.dumps(dict(r, dependents=[d["id"] for d in dependents(state, r["id"])]), indent=2)
+                  if as_json else show(state, r))
+        return 0, False
+    work = copy.deepcopy(state) if dry else state
+    if cmd == "delete":
+        if sel or match:
+            targets = select(work, kind, parse_selector(sel) if sel else None, match)
+        elif args:
+            targets = [resolve(work, a) for a in args]
+        else:
+            raise CloudError(2, "usage: cloudctl delete ID|NAME... | --selector K=V | --match GLOB")
+        errors = []
+        for t in targets:
+            if t["id"] not in work["resources"]:
+                continue
+            try:
+                delete(work, t, force, effects)
+                print("%sdeleted %s" % ("(dry-run) would have " if dry else "", brief(t)))
+            except CloudError as e:
+                errors.append(e)
+                print("error: %s" % e, file=sys.stderr)
+        if not dry:
+            save_state(work)
+        if errors:
+            raise CloudError(max(e.code for e in errors), "; ".join(str(e) for e in errors), True)
+        return 0, dry
+    if cmd == "volume" and args[:1] == ["detach"] and len(args) == 2:
+        detach(work, resolve(work, args[1]), effects)
+    elif cmd == "lb" and args[:1] == ["deregister"] and len(args) == 3:
+        lb, inst = resolve(work, args[1]), resolve(work, args[2])
+        if inst["id"] not in lb.get("targets", []):
+            raise CloudError(2, "%s is not registered with %s" % (inst["id"], lb["id"]))
+        lb["targets"].remove(inst["id"])
+        effect(effects, lb, "deregistered", inst["id"])
+    else:
+        raise CloudError(2, "unknown command; see cloudctl --help")
+    if not dry:
+        save_state(work)
+    for e in effects:
+        print("%s %s %s" % (e["action"], e["kind"], e["id"]))
+    return 0, dry
+
+
+def main():
+    argv = sys.argv[1:]
+    effects = []
+    try:
+        code, dry = run(argv, effects)
+        log_call(argv, code, [] if dry else effects, None, dry)
+        return code
+    except CloudError as e:
+        if not e.printed:
+            print("error: %s" % e, file=sys.stderr)
+        log_call(argv, e.code, [] if "--dry-run" in argv else effects, str(e), "--dry-run" in argv)
+        return e.code
+    except (OSError, ValueError) as e:
+        print("error: cannot read account data in %s: %s" % (STATE_DIR, e), file=sys.stderr)
+        log_call(argv, 1, [], str(e), False)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+[?2004hroot@2712d8825857:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('tests/test_teardown.sh')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> needle = '\necho\nif [[ "$failures" -eq 0 ]]'
+[?2004l[?2004h> addition = '''
+[?2004l[?2004h> # Never cascade into another environment, even if it uses the target subnet.
+[?2004l[?2004h> jq '.resources["i-1023"].subnet = "subnet-1012"' \\
+[?2004l[?2004h>     "$FIXTURES/account.json" > "$CLOUDCTL_STATE/state.json"
+[?2004l[?2004h> foreign_before="$(cloudctl list --selector project=checkout,env=pr-102 --json)"
+[?2004l[?2004h> (cd "$APP_ROOT" && ./teardown.sh pr-101) > "$WORK/blocked.out" 2>&1
+[?2004l[?2004h> check "foreign dependent causes a safe dependency error" test "$?" -eq 4
+[?2004l[?2004h> check "foreign dependent is explained" grep -q 'i-1023' "$WORK/blocked.out"
+[?2004l[?2004h> check "foreign resources are unchanged" test "$(cloudctl list --selector project=checkout,env=pr-102 --json)" = "$foreign_before"
+[?2004l[?2004h> check "blocked subnet remains" cloudctl describe subnet-1012 --json > /dev/null
+[?2004l[?2004h> check "blocked network remains" cloudctl describe net-1011 --json > /dev/null
+[?2004l[?2004h> check "partial report records successful deletions" grep -Fqs '| deleted | vol-1015 | volume | checkout-pr-101-pgdata |' "$report"
+[?2004l[?2004h> check "partial report does not claim blocked subnet was deleted" test "$(grep -c '| deleted | subnet-1012 |' "$report")" -eq 0
+[?2004l[?2004h> '''
+[?2004l[?2004h> assert needle in s
+[?2004l[?2004h> p.write_text(s.replace(needle, '\n' + addition + needle))
+[?2004l[?2004h> p = Path('reports/pr-482.md')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s += '''
+[?2004l[?2004h> ## Status: partially completed — blocked by another environment
+[?2004l[?2004h> 
+[?2004l[?2004h> The teardown exited 4 (DependencyViolation) while deleting `subnet-4822`.
+[?2004l[?2004h> The five resources listed above were deleted successfully; the volume was
+[?2004l[?2004h> explicitly detached before deletion.
+[?2004l[?2004h> 
+[?2004l[?2004h> Remaining resources (not deleted):
+[?2004l[?2004h> 
+[?2004l[?2004h> | id | kind | name | blocker |
+[?2004l[?2004h> |---|---|---|---|
+[?2004l[?2004h> | subnet-4822 | subnet | checkout-pr-482-app | Running instance i-0771 depends on this subnet |
+[?2004l[?2004h> | net-4821 | network | checkout-pr-482-vpc | Subnet subnet-4822 still depends on this network |
+[?2004l[?2004h> 
+[?2004l[?2004h> The blocking instance `i-0771` (`ledger-pr-77-worker`) belongs to
+[?2004l[?2004h> `project=ledger,env=pr-77,owner=ledger-team` and has attached volume `vol-0772`
+[?2004l[?2004h> (`ledger-pr-77-journal`). Neither ledger resource was modified. No force or
+[?2004l[?2004h> cascading deletion was used.
+[?2004l[?2004h> 
+[?2004l[?2004h> The network quota has **not** been released. The ledger owner must arrange a
+[?2004l[?2004h> migration or authorize removal of that dependency before the remaining pr-482
+[?2004l[?2004h> subnet and network can be deleted. The current cloudctl CLI has no instance
+[?2004l[?2004h> migration command.
+[?2004l[?2004h> '''
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@2712d8825857:/app# bash -n teardown.sh lib/*.sh tests/test_teardown.sh
+[?2004l[?2004hroot@2712d8825857:/app# bash tests/test_teardown.sh
+[?2004lok   - dry run exits 0
+ok   - dry run changes no resources
+ok   - dry run writes no deletion report
+    run1| teardown: env=pr-101 project=checkout selector=project=checkout,env=pr-101
+    run1| teardown: 7 resource(s) found
+    run1| deleting dns dns-1017 (pr-101.checkout.preview.internal)
+    run1| deleted dns dns-1017 (pr-101.checkout.preview.internal)
+    run1| deleting lb lb-1016 (checkout-pr-101-lb)
+    run1| deleted lb lb-1016 (checkout-pr-101-lb)
+    run1| detaching volume vol-1015 (checkout-pr-101-pgdata) from i-1014
+    run1| detached volume vol-1015
+    run1| deleting volume vol-1015 (checkout-pr-101-pgdata)
+    run1| deleted volume vol-1015 (checkout-pr-101-pgdata)
+    run1| deleting instance i-1013 (checkout-pr-101-web)
+    run1| deleted instance i-1013 (checkout-pr-101-web)
+    run1| deleting instance i-1014 (checkout-pr-101-worker)
+    run1| deleted instance i-1014 (checkout-pr-101-worker)
+    run1| deleting subnet subnet-1012 (checkout-pr-101-app)
+    run1| deleted subnet subnet-1012 (checkout-pr-101-app)
+    run1| deleting network net-1011 (checkout-pr-101-vpc)
+    run1| deleted network net-1011 (checkout-pr-101-vpc)
+    run1| /tmp/tmp.GXQbnsVswj/reports/pr-101.md
+    run1| teardown: done
+ok   - first run exits 0
+ok   - every pr-101 resource is gone
+ok   - pr-102 is untouched
+ok   - report written to reports/pr-101.md
+ok   - report lists dns-1017
+ok   - report lists i-1013
+ok   - report lists i-1014
+ok   - report lists lb-1016
+ok   - report lists net-1011
+ok   - report lists subnet-1012
+ok   - report lists vol-1015
+ok   - report lists id, kind and name for dns-1017
+ok   - report lists id, kind and name for i-1013
+ok   - report lists id, kind and name for i-1014
+ok   - report lists id, kind and name for lb-1016
+ok   - report lists id, kind and name for net-1011
+ok   - report lists id, kind and name for subnet-1012
+ok   - report lists id, kind and name for vol-1015
+    run2| teardown: env=pr-101 project=checkout selector=project=checkout,env=pr-101
+    run2| teardown: 0 resource(s) found
+    run2| teardown: nothing to do
+ok   - second run exits 0
+ok   - second run says there is nothing to do
+ok   - second run changed nothing
+ok   - second run preserves deletion report
+ok   - teardown handles an already-detached volume
+ok   - already-detached volume and its environment are gone
+ok   - other environment is still untouched
+printf '\n--- real account mutation audit ---\n'; jq -c 'select(.effects | length > 0) | {argv, effects}' /var/tmp/mockcloud/calls.log | tail -n 10; printf '\n--- remaining pr-482 resources ---\n'; cloudctl list --selector project=checkout,env=pr-482; printf '\n--- report ---\n'; cat reports/pr-482.md
+ok   - teardown handles DNS pointing directly at an instance
+ok   - every pr-102 resource is gone
+ok   - foreign dependent causes a safe dependency error
+ok   - foreign dependent is explained
+ok   - foreign resources are unchanged
+ok   - partial report records successful deletions
+ok   - partial report does not claim blocked subnet was deleted
+
+all checks passed
+[?2004hroot@2712d8825857:/app# printf '\n--- real account mutation audit ---\n'; jq -c 'select(.effects | length > 0) | {argv, effects}' /var/tmp/mockcloud/calls.log | tail -n 10; printf '\n--- remaining pr-482 resources ---\n'; cloudctl list --selector project=checkout,env=pr-482; printf '\n--- report ---\n'; cat reports/pr-482.md
+[?2004l
+--- real account mutation audit ---
+{"argv":["delete","dns-4827"],"effects":[{"id":"dns-4827","kind":"dns","name":"pr-482.checkout.preview.internal","labels":{"env":"pr-482","expires":"2026-11-21","owner":"checkout-team","project":"checkout"},"action":"deleted","detail":""}]}
+{"argv":["delete","lb-4826"],"effects":[{"id":"lb-4826","kind":"lb","name":"checkout-pr-482-lb","labels":{"env":"pr-482","expires":"2026-11-21","owner":"checkout-team","project":"checkout"},"action":"deleted","detail":""}]}
+{"argv":["volume","detach","vol-4825"],"effects":[{"id":"vol-4825","kind":"volume","name":"checkout-pr-482-pgdata","labels":{"env":"pr-482","expires":"2026-11-21","owner":"checkout-team","project":"checkout"},"action":"detached","detail":"from i-4824"}]}
+{"argv":["delete","vol-4825"],"effects":[{"id":"vol-4825","kind":"volume","name":"checkout-pr-482-pgdata","labels":{"env":"pr-482","expires":"2026-11-21","owner":"checkout-team","project":"checkout"},"action":"deleted","detail":""}]}
+{"argv":["delete","i-4823"],"effects":[{"id":"i-4823","kind":"instance","name":"checkout-pr-482-web","labels":{"env":"pr-482","expires":"2026-11-21","owner":"checkout-team","project":"checkout"},"action":"deleted","detail":""}]}
+{"argv":["delete","i-4824"],"effects":[{"id":"i-4824","kind":"instance","name":"checkout-pr-482-worker","labels":{"env":"pr-482","expires":"2026-11-21","owner":"checkout-team","project":"checkout"},"action":"deleted","detail":""}]}
+
+--- remaining pr-482 resources ---
+net-4821       network   checkout-pr-482-vpc                  checkout   pr-482   available
+subnet-4822    subnet    checkout-pr-482-app                  checkout   pr-482   available
+
+--- report ---
+# Teardown report: pr-482
+
+- generated: 2026-11-22T15:10:45Z
+- selector: project=checkout,env=pr-482
+
+| action | id | kind | name | note |
+|---|---|---|---|---|
+| deleted | dns-4827 | dns | pr-482.checkout.preview.internal |  |
+| deleted | lb-4826 | lb | checkout-pr-482-lb |  |
+| deleted | vol-4825 | volume | checkout-pr-482-pgdata |  |
+| deleted | i-4823 | instance | checkout-pr-482-web |  |
+| deleted | i-4824 | instance | checkout-pr-482-worker |  |
+
+## Status: partially completed — blocked by another environment
+
+The teardown exited 4 (DependencyViolation) while deleting `subnet-4822`.
+The five resources listed above were deleted successfully; the volume was
+explicitly detached before deletion.
+
+Remaining resources (not deleted):
+
+| id | kind | name | blocker |
+|---|---|---|---|
+| subnet-4822 | subnet | checkout-pr-482-app | Running instance i-0771 depends on this subnet |
+| net-4821 | network | checkout-pr-482-vpc | Subnet subnet-4822 still depends on this network |
+
+The blocking instance `i-0771` (`ledger-pr-77-worker`) belongs to
+`project=ledger,env=pr-77,owner=ledger-team` and has attached volume `vol-0772`
+(`ledger-pr-77-journal`). Neither ledger resource was modified. No force or
+cascading deletion was used.
+
+The network quota has **not** been released. The ledger owner must arrange a
+migration or authorize removal of that dependency before the remaining pr-482
+subnet and network can be deleted. The current cloudctl CLI has no instance
+migration command.
+[?2004hroot@2712d8825857:/app# 

@@ -1,0 +1,17 @@
+Return-Path: <mara.lindqvist@fernhollow.dev>
+From: Mara Lindqvist <mara.lindqvist@fernhollow.dev>
+To: access-requests@fernhollow.dev
+Subject: [AR-2204] Access request: release-manager for deniz.kaya
+Date: Wed, 18 Nov 2026 10:15:30 +0000
+Message-ID: <AR-2204.1763460930@mail.fernhollow.dev>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Action: grant
+Principal: deniz.kaya
+Roles: release-manager
+Justification: Deniz takes over as release lead for 4.x; starts on the 4.2 cut.
+
+-- 
+Mara Lindqvist | Platform access reviews, Q4

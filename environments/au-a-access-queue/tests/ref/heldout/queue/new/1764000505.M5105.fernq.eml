@@ -1,0 +1,15 @@
+From: Oskar Brandt <oskar.brandt@fernhollow.dev>
+To: access-requests@fernhollow.dev
+Subject: [AR-5105] Access request
+Date: Mon, 23 Nov 2026 09:20:00 +0000
+Message-ID: <AR-5105.held@mail.fernhollow.dev>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Action: grant
+Principal: noor.haddad
+Roles: ci-viewer
+Justification: held-out grader case
+
+-- 
+Oskar

@@ -1,0 +1,17 @@
+Return-Path: <mara.lindqvist@fernhollow.dev>
+From: Mara Lindqvist <mara.lindqvist@fernhollow.dev>
+To: access-requests@fernhollow.dev
+Subject: [AR-2203] Access removal: billing-reader for tomas.eriksen
+Date: Tue, 17 Nov 2026 10:15:01 +0000
+Message-ID: <AR-2203.1763374501@mail.fernhollow.dev>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Action: revoke
+Principal: tomas.eriksen
+Roles: billing-reader
+Justification: Tomas moved off the FinOps project on 13 Nov; flagged in the Q4 review.
+
+-- 
+Mara Lindqvist | Platform access reviews, Q4

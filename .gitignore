@@ -1,0 +1,6 @@
+.env
+jobs/
+harbor/
+scratch/
+__pycache__/
+*.pyc

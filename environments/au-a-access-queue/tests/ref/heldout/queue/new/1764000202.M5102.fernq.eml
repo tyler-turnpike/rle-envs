@@ -1,0 +1,22 @@
+From: "BRANDT, Oskar" <Oskar.Brandt@FernHollow.dev>
+To: access-requests@fernhollow.dev
+Subject: [AR-5102] Access removal
+Date: Mon, 23 Nov 2026 09:05:00 +0000
+Message-ID: <AR-5102.held@mail.fernhollow.dev>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="=_x5102"
+
+--=_x5102
+Content-Type: text/plain; charset=utf-8
+
+Action: revoke
+Principal: lars.holm
+Roles: billing-reader, deploy-operator
+Justification: left the team
+
+--=_x5102
+Content-Type: text/html; charset=utf-8
+
+<p>Action: revoke<br>Principal: lars.holm<br>Roles: billing-reader, deploy-operator</p>
+
+--=_x5102--

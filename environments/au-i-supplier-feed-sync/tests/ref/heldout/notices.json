@@ -1,0 +1,16 @@
+[
+  {
+    "id": "OPS-2288",
+    "severity": "info",
+    "published_at": "2026-11-10T08:00:00Z",
+    "title": "Maintenance window 2026-11-29",
+    "body": "The delta API is read-only on 2026-11-29 between 01:00 and 03:00 UTC. Cursors issued before the window stay valid; clients should retry with backoff."
+  },
+  {
+    "id": "OPS-2291",
+    "severity": "action_required",
+    "published_at": "2026-11-18T06:30:00Z",
+    "title": "Schema v2.3: tombstones retire SKUs permanently - integrator action required for local price overrides",
+    "body": "From feed epoch 2026.47 (schema v2.3) a tombstone retires the SKU together with every downstream price attached to it, and retired SKU codes can be re-issued to a different product later in the same epoch (this delta contains re-issued codes). Local price overrides held for a tombstoned SKU are void: integrators must purge them when the tombstone is applied (e.g. DELETE FROM price_overrides WHERE sku = <tombstoned sku>), otherwise the re-issued product inherits the old override and is sold at the retired item's promo/clearance price (double discount). Integrations that apply tombstones without purging overrides are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2)."
+  }
+]

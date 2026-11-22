@@ -1,0 +1,152 @@
+[
+ {
+  "id": 501,
+  "sku": "KS-35018",
+  "override_cents": 238,
+  "starts_on": "2025-06-01",
+  "ends_on": "2029-12-31",
+  "author": "merch/trade-accounts",
+  "reason": "Bundle launch - spring garden",
+  "created_at": "2026-10-03T10:57:00Z"
+ },
+ {
+  "id": 502,
+  "sku": "KS-35028",
+  "override_cents": 1565,
+  "starts_on": "2025-06-01",
+  "ends_on": "2029-12-31",
+  "author": "merch/trade-accounts",
+  "reason": "Price match vs. DIY chain flyer",
+  "created_at": "2026-11-02T10:12:00Z"
+ },
+ {
+  "id": 503,
+  "sku": "KS-35019",
+  "override_cents": 134,
+  "starts_on": "2024-11-01",
+  "ends_on": "2030-01-31",
+  "author": "merch/trade-accounts",
+  "reason": "Bundle launch - spring garden",
+  "created_at": "2026-10-07T10:38:00Z"
+ },
+ {
+  "id": 504,
+  "sku": "KS-35000",
+  "override_cents": 3073,
+  "starts_on": "2024-03-01",
+  "ends_on": "2024-06-30",
+  "author": "merch/promo-desk",
+  "reason": "Spring sale 2024",
+  "created_at": "2026-11-01T10:12:00Z"
+ },
+ {
+  "id": 505,
+  "sku": "KS-35030",
+  "override_cents": 2898,
+  "starts_on": "2024-01-01",
+  "ends_on": null,
+  "author": "merch/promo-desk",
+  "reason": "Trade account contract price",
+  "created_at": "2026-10-04T10:10:00Z"
+ },
+ {
+  "id": 506,
+  "sku": "KS-35003",
+  "override_cents": 591,
+  "starts_on": "2025-06-01",
+  "ends_on": "2029-12-31",
+  "author": "merch/clearance",
+  "reason": "Trade account contract price",
+  "created_at": "2026-10-01T10:32:00Z"
+ },
+ {
+  "id": 507,
+  "sku": "KS-35008",
+  "override_cents": 165,
+  "starts_on": "2024-01-01",
+  "ends_on": null,
+  "author": "merch/promo-desk",
+  "reason": "Price match vs. DIY chain flyer",
+  "created_at": "2026-10-08T10:33:00Z"
+ },
+ {
+  "id": 508,
+  "sku": "KS-35011",
+  "override_cents": 2078,
+  "starts_on": "2024-01-01",
+  "ends_on": null,
+  "author": "merch/promo-desk",
+  "reason": "Bundle launch - spring garden",
+  "created_at": "2026-11-04T10:33:00Z"
+ },
+ {
+  "id": 509,
+  "sku": "KS-35001",
+  "override_cents": 2514,
+  "starts_on": "2029-03-01",
+  "ends_on": "2029-05-31",
+  "author": "merch/clearance",
+  "reason": "Spring 2029 catalogue price",
+  "created_at": "2026-10-07T10:58:00Z"
+ },
+ {
+  "id": 510,
+  "sku": "KS-35034",
+  "override_cents": 2388,
+  "starts_on": "2024-01-01",
+  "ends_on": null,
+  "author": "merch/trade-accounts",
+  "reason": "Clearance - discontinued finish",
+  "created_at": "2026-11-06T10:38:00Z"
+ },
+ {
+  "id": 511,
+  "sku": "KS-35904",
+  "override_cents": 5932,
+  "starts_on": "2025-06-01",
+  "ends_on": "2029-12-31",
+  "author": "merch/promo-desk",
+  "reason": "Black Friday 2026 promo",
+  "created_at": "2026-10-03T10:54:00Z"
+ },
+ {
+  "id": 512,
+  "sku": "KS-35002",
+  "override_cents": 408,
+  "starts_on": "2025-06-01",
+  "ends_on": "2029-12-31",
+  "author": "merch/clearance",
+  "reason": "Black Friday 2026 promo",
+  "created_at": "2026-10-03T10:18:00Z"
+ },
+ {
+  "id": 513,
+  "sku": "KS-35016",
+  "override_cents": 1699,
+  "starts_on": "2024-11-01",
+  "ends_on": "2030-01-31",
+  "author": "merch/clearance",
+  "reason": "Trade account contract price",
+  "created_at": "2026-11-03T10:19:00Z"
+ },
+ {
+  "id": 514,
+  "sku": "KS-35024",
+  "override_cents": 1699,
+  "starts_on": "2025-06-01",
+  "ends_on": "2029-12-31",
+  "author": "merch/promo-desk",
+  "reason": "Price match vs. DIY chain flyer",
+  "created_at": "2026-10-09T10:55:00Z"
+ },
+ {
+  "id": 515,
+  "sku": "KS-35018",
+  "override_cents": 138,
+  "starts_on": "2025-11-20",
+  "ends_on": "2029-12-31",
+  "author": "merch/trade-accounts",
+  "reason": "Black Friday 2026 promo",
+  "created_at": "2026-10-03T10:57:00Z"
+ }
+]

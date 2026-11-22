@@ -1,0 +1,74 @@
+{"seq": 1, "op": "upsert", "sku": "KS-35000", "title": "Nylon hose connector 150mm", "price": "129.00", "currency": "EUR", "updated_at": "2026-11-10T07:13:00Z"}
+{"seq": 2, "op": "upsert", "sku": "KS-35001", "title": "Oak rain chain small", "price": "14.15", "currency": "EUR", "updated_at": "2026-11-10T14:26:00Z"}
+{"seq": 7, "op": "upsert", "sku": "KS-35002", "title": "Galvanised planter box small", "price": "0.29", "currency": "EUR", "updated_at": "2026-11-10T01:31:00Z"}
+{"seq": 8, "op": "upsert", "sku": "KS-35003", "title": "Stainless trellis panel M8", "price": "19.65", "currency": "EUR", "updated_at": "2026-11-10T08:44:00Z"}
+{"seq": 9, "op": "upsert", "sku": "KS-35004", "title": "Zinc drawer runner x25", "price": "2.45", "currency": "EUR", "updated_at": "2026-11-10T15:57:00Z"}
+{"seq": 13, "op": "upsert", "sku": "KS-35005", "title": "Zinc wall bracket x25", "price": "249.90", "currency": "EUR", "updated_at": "2026-11-10T19:49:00Z"}
+{"seq": 14, "op": "upsert", "sku": "KS-35006", "title": "Nylon cable tie pack small", "price": "129.90", "currency": "EUR", "updated_at": "2026-11-10T02:02:00Z"}
+{"seq": 15, "op": "upsert", "sku": "KS-35007", "title": "Powder-coated post cap 40mm", "price": "129.00", "currency": "EUR", "updated_at": "2026-11-10T09:15:00Z"}
+{"seq": 17, "op": "upsert", "sku": "KS-35008", "title": "Cast iron hose connector 300mm", "price": "4.58", "currency": "EUR", "updated_at": "2026-11-10T23:41:00Z"}
+{"seq": 18, "op": "upsert", "sku": "KS-35009", "title": "Cedar trellis panel x10", "price": "12.15", "currency": "EUR", "updated_at": "2026-11-10T06:54:00Z"}
+{"seq": 19, "op": "upsert", "sku": "KS-35010", "title": "Copper post cap small", "price": "5.65", "currency": "EUR", "updated_at": "2026-11-10T13:07:00Z"}
+{"seq": 22, "op": "upsert", "sku": "KS-35011", "title": "Cedar cable tie pack 300mm", "price": "2.85", "currency": "EUR", "updated_at": "2026-11-10T10:46:00Z"}
+{"seq": 24, "op": "upsert", "sku": "KS-35012", "title": "Oak hose connector 300mm", "price": "24.10", "currency": "EUR", "updated_at": "2026-11-10T00:12:00Z"}
+{"seq": 25, "op": "upsert", "sku": "KS-35013", "title": "Stainless drawer runner 1/2in", "price": "19.85", "currency": "EUR", "updated_at": "2026-11-10T07:25:00Z"}
+{"seq": 26, "op": "upsert", "sku": "KS-35014", "title": "Copper planter box 1/2in", "price": "5.85", "currency": "EUR", "updated_at": "2026-11-10T14:38:00Z"}
+{"seq": 27, "op": "upsert", "sku": "KS-35015", "title": "Brass garden tap 300mm", "price": "249.00", "currency": "EUR", "updated_at": "2026-11-10T21:51:00Z"}
+{"seq": 28, "op": "upsert", "sku": "KS-35016", "title": "Galvanised garden tap 200mm", "price": "79.45", "currency": "EUR", "updated_at": "2026-11-10T04:04:00Z"}
+{"seq": 29, "op": "upsert", "sku": "KS-35017", "title": "Stainless garden tap 200mm", "price": "8.70", "currency": "EUR", "updated_at": "2026-11-10T11:17:00Z"}
+{"seq": 30, "op": "upsert", "sku": "KS-35018", "title": "Stainless rain chain x25", "price": "2.65", "currency": "EUR", "updated_at": "2026-11-10T18:30:00Z"}
+{"seq": 31, "op": "upsert", "sku": "KS-35019", "title": "Brass door handle 2m", "price": "12.99", "currency": "EUR", "updated_at": "2026-11-10T01:43:00Z"}
+{"seq": 36, "op": "upsert", "sku": "KS-35020", "title": "Stainless cable tie pack x25", "price": "0.10", "currency": "EUR", "updated_at": "2026-11-10T12:48:00Z"}
+{"seq": 38, "op": "upsert", "sku": "KS-35021", "title": "Oak drawer runner 1/2in", "price": "4.35", "currency": "EUR", "updated_at": "2026-11-10T02:14:00Z"}
+{"seq": 40, "op": "upsert", "sku": "KS-35022", "title": "Stainless trellis panel 40mm", "price": "0.10", "currency": "EUR", "updated_at": "2026-11-11T16:40:00Z"}
+{"seq": 44, "op": "upsert", "sku": "KS-35023", "title": "Powder-coated padlock 3/4in", "price": "249.45", "currency": "EUR", "updated_at": "2026-11-11T20:32:00Z"}
+{"seq": 45, "op": "upsert", "sku": "KS-35024", "title": "Brass wall bracket 1/2in", "price": "1.85", "currency": "EUR", "updated_at": "2026-11-11T03:45:00Z"}
+{"seq": 47, "op": "upsert", "sku": "KS-35025", "title": "Galvanised cable tie pack 300mm", "price": "8.15", "currency": "EUR", "updated_at": "2026-11-11T17:11:00Z"}
+{"seq": 48, "op": "upsert", "sku": "KS-35026", "title": "Nylon rain chain 1/2in", "price": "24.65", "currency": "EUR", "updated_at": "2026-11-11T00:24:00Z"}
+{"seq": 49, "op": "upsert", "sku": "KS-35027", "title": "Oak tool clip set 40mm", "price": "249.45", "currency": "EUR", "updated_at": "2026-11-11T07:37:00Z"}
+{"seq": 50, "op": "upsert", "sku": "KS-35028", "title": "Galvanised hook rail 2m", "price": "4.00", "currency": "EUR", "updated_at": "2026-11-11T14:50:00Z"}
+{"seq": 51, "op": "upsert", "sku": "KS-35029", "title": "Cedar hook rail x10", "price": "8.57", "currency": "EUR", "updated_at": "2026-11-11T21:03:00Z"}
+{"seq": 57, "op": "upsert", "sku": "KS-35030", "title": "Stainless padlock 3/4in", "price": "34.10", "currency": "EUR", "updated_at": "2026-11-11T15:21:00Z"}
+{"seq": 58, "op": "upsert", "sku": "KS-35031", "title": "Brass sash lock 3/4in", "price": "4.35", "currency": "EUR", "updated_at": "2026-11-11T22:34:00Z"}
+{"seq": 59, "op": "upsert", "sku": "KS-35032", "title": "Brass wall bracket x25", "price": "49.95", "currency": "EUR", "updated_at": "2026-11-11T05:47:00Z"}
+{"seq": 63, "op": "upsert", "sku": "KS-35033", "title": "Oak hose connector 3/4in", "price": "49.10", "currency": "EUR", "updated_at": "2026-11-11T09:39:00Z"}
+{"seq": 65, "op": "upsert", "sku": "KS-35034", "title": "Stainless sash lock 2m", "price": "29.85", "currency": "EUR", "updated_at": "2026-11-11T23:05:00Z"}
+{"seq": 66, "op": "upsert", "sku": "KS-35035", "title": "Brass rain chain x10", "price": "129.99", "currency": "EUR", "updated_at": "2026-11-11T06:18:00Z"}
+{"seq": 67, "op": "upsert", "sku": "KS-35036", "title": "Brass wall bracket 3/4in", "price": "5.90", "currency": "EUR", "updated_at": "2026-11-11T13:31:00Z"}
+{"seq": 68, "op": "upsert", "sku": "KS-35037", "title": "Stainless sash lock M8", "price": "49.57", "currency": "EUR", "updated_at": "2026-11-11T20:44:00Z"}
+{"seq": 70, "op": "upsert", "sku": "KS-35038", "title": "Oak door handle large", "price": "2.29", "currency": "EUR", "updated_at": "2026-11-11T10:10:00Z"}
+{"seq": 74, "op": "upsert", "sku": "KS-35039", "title": "Zinc garden tap x25", "price": "24.45", "currency": "EUR", "updated_at": "2026-11-11T14:02:00Z"}
+{"seq": 77, "op": "upsert", "sku": "KS-35040", "title": "Nylon trellis panel M8", "price": "129.00", "currency": "EUR", "updated_at": "2026-11-11T11:41:00Z"}
+{"seq": 78, "op": "upsert", "sku": "KS-35041", "title": "Stainless tool clip set M8", "price": "4.49", "currency": "EUR", "updated_at": "2026-11-11T18:54:00Z"}
+{"seq": 79, "op": "upsert", "sku": "KS-35042", "title": "Cedar hook rail large", "price": "8.65", "currency": "EUR", "updated_at": "2026-11-11T01:07:00Z"}
+{"seq": 80, "op": "upsert", "sku": "KS-35043", "title": "Copper post cap 150mm", "price": "2.29", "currency": "EUR", "updated_at": "2026-11-12T08:20:00Z"}
+{"seq": 83, "op": "upsert", "sku": "KS-35033", "title": "Oak hose connector 3/4in", "price": "5.35", "currency": "EUR", "updated_at": "2026-11-12T05:59:00Z"}
+{"seq": 88, "op": "upsert", "sku": "KS-35010", "title": "Copper post cap small", "price": "49.85", "currency": "EUR", "updated_at": "2026-11-12T16:04:00Z"}
+{"seq": 89, "op": "upsert", "sku": "KS-35003", "title": "Stainless trellis panel M8", "price": "8.45", "currency": "EUR", "updated_at": "2026-11-12T23:17:00Z"}
+{"seq": 90, "op": "upsert", "sku": "KS-35008", "title": "Cast iron hose connector 300mm", "price": "1.95", "currency": "EUR", "updated_at": "2026-11-12T06:30:00Z"}
+{"seq": 92, "op": "upsert", "sku": "KS-35017", "title": "Stainless garden tap 200mm", "price": "4.29", "currency": "EUR", "updated_at": "2026-11-12T20:56:00Z"}
+{"seq": 93, "op": "upsert", "sku": "KS-35028", "title": "Galvanised hook rail 2m", "price": "3.35", "currency": "EUR", "updated_at": "2026-11-12T03:09:00Z"}
+{"seq": 94, "op": "upsert", "sku": "KS-35013", "title": "Stainless drawer runner 1/2in", "price": "29.49", "currency": "EUR", "updated_at": "2026-11-12T10:22:00Z"}
+{"seq": 96, "op": "upsert", "sku": "KS-35012", "title": "Oak hose connector 300mm", "price": "4.15", "currency": "EUR", "updated_at": "2026-11-12T00:48:00Z"}
+{"seq": 97, "op": "upsert", "sku": "KS-35002", "title": "Galvanised planter box small", "price": "5.10", "currency": "EUR", "updated_at": "2026-11-12T07:01:00Z"}
+{"seq": 99, "op": "upsert", "sku": "KS-35024", "title": "Brass wall bracket 1/2in", "price": "19.15", "currency": "EUR", "updated_at": "2026-11-12T21:27:00Z"}
+{"seq": 107, "op": "upsert", "sku": "KS-35021", "title": "Oak drawer runner 1/2in", "price": "5.10", "currency": "EUR", "updated_at": "2026-11-12T05:11:00Z"}
+{"seq": 108, "op": "upsert", "sku": "KS-35037", "title": "Stainless sash lock M8", "price": "129.00", "currency": "EUR", "updated_at": "2026-11-12T12:24:00Z"}
+{"seq": 132, "op": "delete", "sku": "KS-35001", "updated_at": "2026-11-13T12:36:00Z"}
+{"seq": 133, "op": "delete", "sku": "KS-35041", "updated_at": "2026-11-13T19:49:00Z"}
+{"seq": 138, "op": "delete", "sku": "KS-35035", "updated_at": "2026-11-13T06:54:00Z"}
+{"seq": 143, "op": "delete", "sku": "KS-35032", "updated_at": "2026-11-13T17:59:00Z"}
+{"seq": 148, "op": "delete", "sku": "KS-35016", "updated_at": "2026-11-13T04:04:00Z"}
+{"seq": 152, "op": "upsert", "sku": "KS-35027", "title": "Oak tool clip set 40mm", "price": "79.29", "currency": "EUR", "updated_at": "2026-11-13T08:56:00Z"}
+{"seq": 154, "op": "upsert", "sku": "KS-35027", "title": "Oak tool clip set 40mm", "price": "4.99", "currency": "EUR", "updated_at": "2026-11-13T22:22:00Z"}
+{"seq": 155, "op": "upsert", "sku": "KS-35031", "title": "Brass sash lock 3/4in", "price": "29.58", "currency": "EUR", "updated_at": "2026-11-13T05:35:00Z"}
+{"seq": 179, "op": "upsert", "sku": "KS-35040", "title": "Nylon trellis panel M8", "price": "29.85", "currency": "EUR", "updated_at": "2026-11-14T05:47:00Z"}
+{"seq": 180, "op": "upsert", "sku": "KS-35009", "title": "Cedar trellis panel x10", "price": "9.57", "currency": "EUR", "updated_at": "2026-11-14T12:00:00Z"}
+{"seq": 181, "op": "upsert", "sku": "KS-35044", "title": "Cedar hook rail 1/2in", "price": "2.45", "currency": "EUR", "updated_at": "2026-11-14T19:13:00Z"}
+{"seq": 182, "op": "upsert", "sku": "KS-35000", "title": "Nylon hose connector 150mm", "price": "34.15", "currency": "EUR", "updated_at": "2026-11-14T02:26:00Z"}
+{"seq": 186, "op": "upsert", "sku": "KS-35011", "title": "Cedar cable tie pack 300mm", "price": "24.45", "currency": "EUR", "updated_at": "2026-11-14T06:18:00Z"}
+{"seq": 189, "op": "upsert", "sku": "KS-35001", "title": "Oak rain chain small", "price": "14.45", "currency": "EUR", "updated_at": "2026-11-14T03:57:00Z"}
+{"seq": 192, "op": "upsert", "sku": "KS-35045", "title": "Zinc wall bracket 2m", "price": "14.29", "currency": "EUR", "updated_at": "2026-11-14T00:36:00Z"}
+{"seq": 195, "op": "upsert", "sku": "KS-35028", "title": "Galvanised hook rail 2m", "price": "19.57", "currency": "EUR", "updated_at": "2026-11-14T21:15:00Z"}
+{"seq": 199, "op": "upsert", "sku": "KS-35043", "title": "Copper post cap 150mm", "price": "34.57", "currency": "EUR", "updated_at": "2026-11-14T01:07:00Z"}
+{"seq": 200, "op": "upsert", "sku": "KS-35005", "title": "Zinc wall bracket x25", "price": "3.57", "currency": "EUR", "updated_at": "2026-11-15T08:20:00Z"}

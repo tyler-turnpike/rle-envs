@@ -1,0 +1,298 @@
+{
+ "cases": [
+  {
+   "id": "h01-century-nonleap",
+   "plan": "pro-monthly",
+   "anchor": "2099-01-31",
+   "to": "team-monthly",
+   "at": "2100-02-20"
+  },
+  {
+   "id": "h02-century-annual",
+   "plan": "pro-annual",
+   "anchor": "2096-02-29",
+   "to": "team-annual",
+   "at": "2100-03-01"
+  },
+  {
+   "id": "h03-quad-century-leap",
+   "plan": "team-annual",
+   "anchor": "2399-12-30",
+   "to": "pro-annual",
+   "at": "2400-02-29"
+  },
+  {
+   "id": "h04-renewal-day-short-month",
+   "plan": "starter-monthly",
+   "anchor": "2026-05-31",
+   "to": "pro-monthly",
+   "at": "2026-06-30"
+  },
+  {
+   "id": "h05-day-before-renewal",
+   "plan": "starter-monthly",
+   "anchor": "2026-05-31",
+   "to": "pro-monthly",
+   "at": "2026-06-29"
+  },
+  {
+   "id": "h06-back-to-anchor-day",
+   "plan": "starter-monthly",
+   "anchor": "2026-05-31",
+   "to": "team-monthly",
+   "at": "2026-07-31"
+  },
+  {
+   "id": "h07-price-change-before-cycle",
+   "plan": "starter-monthly",
+   "anchor": "2025-10-31",
+   "to": "pro-monthly",
+   "at": "2026-07-02"
+  },
+  {
+   "id": "h08-price-change-inside-cycle",
+   "plan": "starter-monthly",
+   "anchor": "2026-06-14",
+   "to": "pro-monthly",
+   "at": "2026-07-03"
+  },
+  {
+   "id": "h09-team-price-change-inside",
+   "plan": "team-monthly",
+   "anchor": "2026-12-31",
+   "to": "pro-monthly",
+   "at": "2027-01-15"
+  },
+  {
+   "id": "h10-annual-price-at-start",
+   "plan": "team-annual",
+   "anchor": "2026-11-30",
+   "to": "pro-annual",
+   "at": "2027-06-01"
+  },
+  {
+   "id": "h11-monthly-to-annual-feb29",
+   "plan": "pro-monthly",
+   "anchor": "2024-02-29",
+   "to": "pro-annual",
+   "at": "2025-02-28"
+  },
+  {
+   "id": "h12-annual-to-monthly-feb28",
+   "plan": "pro-annual",
+   "anchor": "2024-02-29",
+   "to": "pro-monthly",
+   "at": "2027-02-28"
+  },
+  {
+   "id": "h13-annual-on-anchor-day",
+   "plan": "team-annual",
+   "anchor": "2028-02-29",
+   "to": "team-monthly",
+   "at": "2028-02-29"
+  },
+  {
+   "id": "h14-long-lived-annual",
+   "plan": "starter-annual",
+   "anchor": "2005-05-31",
+   "to": "starter-monthly",
+   "at": "2026-01-31"
+  },
+  {
+   "id": "h15-long-lived-monthly",
+   "plan": "pro-monthly",
+   "anchor": "2005-05-31",
+   "to": "starter-monthly",
+   "at": "2026-02-28"
+  },
+  {
+   "id": "h16-spread",
+   "plan": "starter-annual",
+   "anchor": "2399-12-30",
+   "to": "starter-monthly",
+   "at": "2400-08-29"
+  },
+  {
+   "id": "h17-spread",
+   "plan": "pro-annual",
+   "anchor": "2019-12-31",
+   "to": "team-annual",
+   "at": "2020-03-03"
+  },
+  {
+   "id": "h18-spread",
+   "plan": "pro-annual",
+   "anchor": "2099-01-31",
+   "to": "starter-monthly",
+   "at": "2100-06-24"
+  },
+  {
+   "id": "h19-spread",
+   "plan": "pro-monthly",
+   "anchor": "2028-02-29",
+   "to": "pro-annual",
+   "at": "2028-12-31"
+  },
+  {
+   "id": "h20-spread",
+   "plan": "team-annual",
+   "anchor": "2399-12-30",
+   "to": "pro-annual",
+   "at": "2401-04-25"
+  },
+  {
+   "id": "h21-spread",
+   "plan": "pro-monthly",
+   "anchor": "2031-01-31",
+   "to": "pro-annual",
+   "at": "2033-03-15"
+  },
+  {
+   "id": "h22-spread",
+   "plan": "team-monthly",
+   "anchor": "2099-01-31",
+   "to": "pro-annual",
+   "at": "2100-10-05"
+  },
+  {
+   "id": "h23-spread",
+   "plan": "pro-monthly",
+   "anchor": "2025-10-31",
+   "to": "starter-monthly",
+   "at": "2027-06-19"
+  },
+  {
+   "id": "h24-spread",
+   "plan": "pro-annual",
+   "anchor": "2031-01-31",
+   "to": "starter-annual",
+   "at": "2031-10-26"
+  },
+  {
+   "id": "h25-spread",
+   "plan": "team-monthly",
+   "anchor": "2028-02-29",
+   "to": "pro-monthly",
+   "at": "2029-06-11"
+  },
+  {
+   "id": "h26-spread",
+   "plan": "team-monthly",
+   "anchor": "2031-01-31",
+   "to": "starter-monthly",
+   "at": "2031-10-29"
+  },
+  {
+   "id": "h27-spread",
+   "plan": "team-annual",
+   "anchor": "2099-01-31",
+   "to": "pro-annual",
+   "at": "2100-09-11"
+  },
+  {
+   "id": "h28-spread",
+   "plan": "team-monthly",
+   "anchor": "2027-12-31",
+   "to": "pro-monthly",
+   "at": "2028-11-24"
+  },
+  {
+   "id": "h29-spread",
+   "plan": "team-annual",
+   "anchor": "2028-02-29",
+   "to": "starter-annual",
+   "at": "2030-03-01"
+  },
+  {
+   "id": "h30-spread",
+   "plan": "team-monthly",
+   "anchor": "2005-05-31",
+   "to": "starter-monthly",
+   "at": "2006-07-14"
+  },
+  {
+   "id": "h31-spread",
+   "plan": "pro-monthly",
+   "anchor": "2024-01-29",
+   "to": "pro-annual",
+   "at": "2024-11-09"
+  },
+  {
+   "id": "h32-spread",
+   "plan": "pro-monthly",
+   "anchor": "2023-08-31",
+   "to": "team-monthly",
+   "at": "2024-09-23"
+  },
+  {
+   "id": "h33-spread",
+   "plan": "starter-annual",
+   "anchor": "2024-03-31",
+   "to": "pro-annual",
+   "at": "2026-08-17"
+  },
+  {
+   "id": "h34-spread",
+   "plan": "starter-monthly",
+   "anchor": "2024-02-29",
+   "to": "pro-monthly",
+   "at": "2026-04-03"
+  },
+  {
+   "id": "h35-spread",
+   "plan": "pro-annual",
+   "anchor": "2096-02-29",
+   "to": "team-annual",
+   "at": "2098-07-05"
+  },
+  {
+   "id": "h36-spread",
+   "plan": "pro-monthly",
+   "anchor": "2099-01-31",
+   "to": "starter-monthly",
+   "at": "2099-11-14"
+  },
+  {
+   "id": "h37-spread",
+   "plan": "team-monthly",
+   "anchor": "2023-08-31",
+   "to": "pro-monthly",
+   "at": "2024-10-02"
+  },
+  {
+   "id": "h38-spread",
+   "plan": "starter-annual",
+   "anchor": "2024-03-31",
+   "to": "starter-monthly",
+   "at": "2026-03-16"
+  },
+  {
+   "id": "h39-spread",
+   "plan": "pro-monthly",
+   "anchor": "2024-02-29",
+   "to": "pro-annual",
+   "at": "2025-12-16"
+  },
+  {
+   "id": "h40-spread",
+   "plan": "pro-monthly",
+   "anchor": "2019-12-31",
+   "to": "pro-annual",
+   "at": "2020-08-22"
+  },
+  {
+   "id": "h41-spread",
+   "plan": "starter-annual",
+   "anchor": "2023-03-29",
+   "to": "team-annual",
+   "at": "2025-08-03"
+  },
+  {
+   "id": "h42-spread",
+   "plan": "pro-monthly",
+   "anchor": "2025-10-31",
+   "to": "starter-monthly",
+   "at": "2025-11-17"
+  }
+ ]
+}

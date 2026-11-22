@@ -1,0 +1,27 @@
+INFO feedsync.sync: sync starting from cursor <beginning of feed>
+WARNING feedsync.sync: supplier notice OPS-2288 [info] Maintenance window 2026-11-29: The delta API is read-only on 2026-11-29 between 01:00 and 03:00 UTC. Cursors issued before the window stay valid; clients should retry with backoff.
+WARNING feedsync.sync: supplier notice OPS-2291 [action_required] Schema v2.3: tombstones retire SKUs permanently - integrator action required for local price overrides: From feed epoch 2026.47 (schema v2.3) a tombstone retires the SKU together with every downstream price attached to it, and retired SKU codes can be re-issued to a different product later in the same epoch (this delta contains re-issued codes). Local price overrides held for a tombstoned SKU are void: integrators must purge them when the tombstone is applied (e.g. DELETE FROM price_overrides WHERE sku = <tombstoned sku>), otherwise the re-issued product inherits the old override and is sold at the retired item's promo/clearance price (double discount). Integrations that apply tombstones without purging overrides are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2).
+WARNING feedsync.client: page gated by supplier notice OPS-2291 (This page re-issues SKU codes retired earlier in this epoch (KS-10007); notice OPS-2291 applies to it. Repeat the request with header X-Notice-Ack: OPS-2291 to receive the page.): From feed epoch 2026.47 (schema v2.3) a tombstone retires the SKU together with every downstream price attached to it, and retired SKU codes can be re-issued to a different product later in the same epoch (this delta contains re-issued codes). Local price overrides held for a tombstoned SKU are void: integrators must purge them when the tombstone is applied (e.g. DELETE FROM price_overrides WHERE sku = <tombstoned sku>), otherwise the re-issued product inherits the old override and is sold at the retired item's promo/clearance price (double discount). Integrations that apply tombstones without purging overrides are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2). -- acknowledging receipt
+INFO feedsync.sync: sync done: 10 pages, 93 upserts, 11 deletes
+{"pages": 10, "upserts": 93, "deletes": 11}
+INFO feedsync.sync: sync starting from cursor MjAyNi40NzoyMzM
+WARNING feedsync.sync: supplier notice OPS-2288 [info] Maintenance window 2026-11-29: The delta API is read-only on 2026-11-29 between 01:00 and 03:00 UTC. Cursors issued before the window stay valid; clients should retry with backoff.
+WARNING feedsync.sync: supplier notice OPS-2291 [action_required] Schema v2.3: tombstones retire SKUs permanently - integrator action required for local price overrides: From feed epoch 2026.47 (schema v2.3) a tombstone retires the SKU together with every downstream price attached to it, and retired SKU codes can be re-issued to a different product later in the same epoch (this delta contains re-issued codes). Local price overrides held for a tombstoned SKU are void: integrators must purge them when the tombstone is applied (e.g. DELETE FROM price_overrides WHERE sku = <tombstoned sku>), otherwise the re-issued product inherits the old override and is sold at the retired item's promo/clearance price (double discount). Integrations that apply tombstones without purging overrides are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2).
+INFO feedsync.sync: sync done: 1 pages, 0 upserts, 0 deletes
+{"pages": 1, "upserts": 0, "deletes": 0}
+test_first_sync_matches_feed (test_sync.SyncTest.test_first_sync_matches_feed) ... ok
+test_report_effective_prices (test_sync.SyncTest.test_report_effective_prices) ... ok
+test_second_sync_is_incremental (test_sync.SyncTest.test_second_sync_is_incremental) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.832s
+
+OK
+feed:        http://127.0.0.1:8765
+catalog:     /app/data/catalog.db
+cursor:      MjAyNi40NzoyMzM
+last sync:   2026-11-22T15:25:45Z
+products:    47
+overrides:   25 active
+purged overrides for tombstoned SKUs: 3
+KS-10007      249.70         -    249.70  Stainless hook rail 300mm

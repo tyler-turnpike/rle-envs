@@ -1,0 +1,10 @@
+# feedsync settings. FEED_URL / FEEDSYNC_DB in the environment take precedence.
+
+[feed]
+# Local test feed (dev/feedstub.py). Production points at the supplier's host.
+url = "http://127.0.0.1:8765"
+page_size = 25
+timeout_sec = 10
+
+[catalog]
+path = "data/catalog.db"

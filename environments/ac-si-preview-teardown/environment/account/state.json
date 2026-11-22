@@ -1,0 +1,253 @@
+{
+  "account": "preview",
+  "resources": {
+    "dns-0776": {
+      "created": "2026-11-12T10:22:30",
+      "id": "dns-0776",
+      "kind": "dns",
+      "labels": {
+        "env": "pr-77",
+        "expires": "2026-11-15",
+        "owner": "ledger-team",
+        "project": "ledger"
+      },
+      "name": "pr-77.ledger.preview.internal",
+      "status": "active",
+      "target": "i-0775"
+    },
+    "dns-4802": {
+      "created": "2026-11-04T08:41:02",
+      "id": "dns-4802",
+      "kind": "dns",
+      "labels": {
+        "env": "pr-480",
+        "expires": "2026-12-04",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "pr-480.checkout.preview.internal",
+      "status": "active",
+      "target": "i-4801"
+    },
+    "dns-4827": {
+      "created": "2026-11-09T14:05:40",
+      "id": "dns-4827",
+      "kind": "dns",
+      "labels": {
+        "env": "pr-482",
+        "expires": "2026-11-21",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "pr-482.checkout.preview.internal",
+      "status": "active",
+      "target": "lb-4826"
+    },
+    "i-0771": {
+      "created": "2026-11-12T10:21:09",
+      "id": "i-0771",
+      "image": "ledger-worker:pr-77",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-77",
+        "expires": "2026-11-15",
+        "owner": "ledger-team",
+        "project": "ledger"
+      },
+      "name": "ledger-pr-77-worker",
+      "status": "running",
+      "subnet": "subnet-4822"
+    },
+    "i-0775": {
+      "created": "2026-11-12T10:19:58",
+      "id": "i-0775",
+      "image": "ledger-api:pr-77",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-77",
+        "expires": "2026-11-15",
+        "owner": "ledger-team",
+        "project": "ledger"
+      },
+      "name": "ledger-pr-77-api",
+      "status": "running",
+      "subnet": "subnet-0a12"
+    },
+    "i-4801": {
+      "created": "2026-11-04T08:40:17",
+      "id": "i-4801",
+      "image": "checkout-web:pr-480",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-480",
+        "expires": "2026-12-04",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-480-web",
+      "status": "running",
+      "subnet": "subnet-0a12"
+    },
+    "i-4823": {
+      "created": "2026-11-09T14:04:02",
+      "id": "i-4823",
+      "image": "checkout-web:pr-482",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-482",
+        "expires": "2026-11-21",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-482-web",
+      "status": "running",
+      "subnet": "subnet-4822"
+    },
+    "i-4824": {
+      "created": "2026-11-09T14:04:05",
+      "id": "i-4824",
+      "image": "checkout-worker:pr-482",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-482",
+        "expires": "2026-11-21",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-482-worker",
+      "status": "running",
+      "subnet": "subnet-4822"
+    },
+    "i-5001": {
+      "created": "2026-06-18T11:00:00",
+      "id": "i-5001",
+      "image": "checkout-web:2026.11.3",
+      "kind": "instance",
+      "labels": {
+        "env": "staging",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-staging-web",
+      "status": "running",
+      "subnet": "subnet-0a12"
+    },
+    "lb-4826": {
+      "created": "2026-11-09T14:05:12",
+      "id": "lb-4826",
+      "kind": "lb",
+      "labels": {
+        "env": "pr-482",
+        "expires": "2026-11-21",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-482-lb",
+      "status": "active",
+      "subnet": "subnet-4822",
+      "targets": [
+        "i-4823"
+      ]
+    },
+    "net-0a11": {
+      "cidr": "10.40.0.0/16",
+      "created": "2026-03-02T09:14:00",
+      "id": "net-0a11",
+      "kind": "network",
+      "labels": {
+        "env": "shared",
+        "owner": "platform-team",
+        "project": "platform"
+      },
+      "name": "platform-preview-vpc",
+      "status": "available"
+    },
+    "net-4821": {
+      "cidr": "10.82.0.0/16",
+      "created": "2026-11-09T14:02:11",
+      "id": "net-4821",
+      "kind": "network",
+      "labels": {
+        "env": "pr-482",
+        "expires": "2026-11-21",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-482-vpc",
+      "status": "available"
+    },
+    "subnet-0a12": {
+      "cidr": "10.40.1.0/24",
+      "created": "2026-03-02T09:15:00",
+      "id": "subnet-0a12",
+      "kind": "subnet",
+      "labels": {
+        "env": "shared",
+        "owner": "platform-team",
+        "project": "platform"
+      },
+      "name": "platform-preview-shared-a",
+      "network": "net-0a11",
+      "status": "available"
+    },
+    "subnet-4822": {
+      "cidr": "10.82.1.0/24",
+      "created": "2026-11-09T14:02:40",
+      "id": "subnet-4822",
+      "kind": "subnet",
+      "labels": {
+        "env": "pr-482",
+        "expires": "2026-11-21",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-482-app",
+      "network": "net-4821",
+      "status": "available"
+    },
+    "vol-0772": {
+      "attached_to": "i-0771",
+      "created": "2026-11-12T10:20:44",
+      "id": "vol-0772",
+      "kind": "volume",
+      "labels": {
+        "env": "pr-77",
+        "expires": "2026-11-15",
+        "owner": "ledger-team",
+        "project": "ledger"
+      },
+      "name": "ledger-pr-77-journal",
+      "size_gb": 50,
+      "status": "in-use"
+    },
+    "vol-4825": {
+      "attached_to": "i-4824",
+      "created": "2026-11-09T14:03:30",
+      "id": "vol-4825",
+      "kind": "volume",
+      "labels": {
+        "env": "pr-482",
+        "expires": "2026-11-21",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-482-pgdata",
+      "size_gb": 20,
+      "status": "in-use"
+    },
+    "vol-5002": {
+      "attached_to": "i-5001",
+      "created": "2026-06-18T10:58:00",
+      "id": "vol-5002",
+      "kind": "volume",
+      "labels": {
+        "env": "staging",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-staging-pgdata",
+      "size_gb": 100,
+      "status": "in-use"
+    }
+  }
+}

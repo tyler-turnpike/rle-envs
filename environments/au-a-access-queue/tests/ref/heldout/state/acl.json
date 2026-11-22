@@ -1,0 +1,9 @@
+{
+  "principals": {
+    "kim.sato": ["ci-viewer"],
+    "lars.holm": ["billing-reader", "ci-viewer", "deploy-operator"],
+    "noor.haddad": ["ci-viewer", "oncall-responder"],
+    "svc-nightly": ["ci-viewer"]
+  },
+  "updated": "2026-10-30T08:00:00Z"
+}

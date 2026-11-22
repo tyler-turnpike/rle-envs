@@ -1,0 +1,15 @@
+{
+  "principals": {
+    "alice.ng": ["ci-viewer", "oncall-responder"],
+    "ilse.achterberg": ["admin"],
+    "jonas.peltier": ["artifact-publisher", "ci-viewer", "deploy-operator", "release-manager"],
+    "lea.fontaine": [],
+    "mara.lindqvist": ["access-reviewer", "ci-viewer"],
+    "priya.raman": ["ci-viewer"],
+    "svc-legacy-ci": ["ci-viewer", "deploy-operator"],
+    "svc-release-bot": ["artifact-publisher", "ci-viewer"],
+    "tomas.eriksen": ["billing-reader", "ci-viewer"],
+    "wen.zhao": ["ci-viewer", "deploy-operator"]
+  },
+  "updated": "2026-11-12T16:40:07Z"
+}

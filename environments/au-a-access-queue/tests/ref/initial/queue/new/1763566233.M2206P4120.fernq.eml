@@ -1,0 +1,27 @@
+Return-Path: <Mara.Lindqvist@fernhollow.dev>
+From: "Lindqvist, Mara" <Mara.Lindqvist@fernhollow.dev>
+To: access-requests@fernhollow.dev
+Subject: [AR-2206] Access removal: svc-legacy-ci
+Date: Thu, 19 Nov 2026 15:30:33 +0000
+Message-ID: <AR-2206.1763566233@mail.fernhollow.dev>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="=_b7f1c2a9"
+
+--=_b7f1c2a9
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Action: revoke
+Principal: svc-legacy-ci
+Roles: deploy-operator, ci-viewer
+Justification: legacy CI runner was decommissioned on 18 Nov, account no longer used.
+
+Sent from my phone
+
+--=_b7f1c2a9
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body><p>Action: revoke<br>Principal: svc-legacy-ci<br>Roles: deploy-operator, ci-viewer<br>Justification: legacy CI runner was decommissioned on 18 Nov, account no longer used.</p><p>Sent from my phone</p></body></html>
+
+--=_b7f1c2a9--

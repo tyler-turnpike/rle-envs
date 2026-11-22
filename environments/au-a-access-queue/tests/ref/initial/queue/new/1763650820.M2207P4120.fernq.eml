@@ -1,0 +1,17 @@
+Return-Path: <priya.raman@fernhollow.dev>
+From: Priya Raman <priya.raman@fernhollow.dev>
+To: access-requests@fernhollow.dev
+Subject: [AR-2207] Access request: ci-viewer for lea.fontaine
+Date: Fri, 20 Nov 2026 15:00:20 +0000
+Message-ID: <AR-2207.1763650820@mail.fernhollow.dev>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Action: grant
+Principal: lea.fontaine
+Roles: ci-viewer
+Justification: Lea is our winter intern, starting Monday, needs to see build logs.
+
+-- 
+Priya

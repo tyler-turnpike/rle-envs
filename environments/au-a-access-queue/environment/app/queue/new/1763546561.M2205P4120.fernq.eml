@@ -1,0 +1,29 @@
+Return-Path: <jonas.peltier@fernhollow.dev>
+From: Jonas Peltier <jonas.peltier@fernhollow.dev>
+To: access-requests@fernhollow.dev
+Cc: Mara Lindqvist <mara.lindqvist@fernhollow.dev>
+Subject: [AR-2205] Access request: admin for svc-release-bot
+Date: Thu, 19 Nov 2026 10:02:41 +0000
+Message-ID: <AR-2205.1763542380@mail.fernhollow.dev>
+In-Reply-To: <CAF9q2r-ml-0919@mail.fernhollow.dev>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Action: grant
+Principal: svc-release-bot
+Roles: admin
+Justification: release pipeline needs org admin for the repo provisioning step of the 4.2 branch cut (Mon 23 Nov). It creates the release repos and sets branch protection.
+
+Filing this on Mara's behalf as she asked below (the form won't let her pick
+a service account as the principal). Mara is cc'd.
+
+On Thu, 19 Nov 2026 at 09:41, Mara Lindqvist <mara.lindqvist@fernhollow.dev> wrote:
+> Approved from the access-review side, this is part of the 4.2 release prep.
+> Jonas, please file it through the form and cc me; treat it as my request
+> and it can go in with the rest of my batch.
+>
+> Mara
+
+-- 
+Jonas Peltier | Release engineering

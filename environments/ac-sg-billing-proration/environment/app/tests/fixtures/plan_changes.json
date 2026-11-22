@@ -1,0 +1,165 @@
+{
+  "source": "finance worked examples for BILL-212 (rev. 4 rules)",
+  "cases": [
+    {
+      "id": "mid-month-upgrade",
+      "plan": "starter-monthly",
+      "anchor": "2025-03-14",
+      "to": "pro-monthly",
+      "at": "2026-06-20",
+      "expected": {
+        "period_start": "2026-06-14",
+        "period_end": "2026-07-14",
+        "credit": 960,
+        "charge": 3920,
+        "total": 2960,
+        "new_anchor": "2025-03-14",
+        "next_renewal": "2026-07-14"
+      }
+    },
+    {
+      "id": "month-end-anchor-short-month",
+      "plan": "pro-monthly",
+      "anchor": "2024-01-31",
+      "to": "team-monthly",
+      "at": "2026-02-15",
+      "expected": {
+        "period_start": "2026-01-31",
+        "period_end": "2026-02-28",
+        "credit": 2275,
+        "charge": 4596,
+        "total": 2321,
+        "new_anchor": "2024-01-31",
+        "next_renewal": "2026-02-28"
+      }
+    },
+    {
+      "id": "month-end-anchor-after-short-month",
+      "plan": "pro-monthly",
+      "anchor": "2024-01-31",
+      "to": "team-monthly",
+      "at": "2026-03-10",
+      "expected": {
+        "period_start": "2026-02-28",
+        "period_end": "2026-03-31",
+        "credit": 3319,
+        "charge": 6706,
+        "total": 3387,
+        "new_anchor": "2024-01-31",
+        "next_renewal": "2026-03-31"
+      }
+    },
+    {
+      "id": "leap-day-renewal",
+      "plan": "pro-monthly",
+      "anchor": "2028-01-30",
+      "to": "team-monthly",
+      "at": "2028-02-29",
+      "expected": {
+        "period_start": "2028-02-29",
+        "period_end": "2028-03-30",
+        "credit": 4900,
+        "charge": 10900,
+        "total": 6000,
+        "new_anchor": "2028-01-30",
+        "next_renewal": "2028-03-30"
+      }
+    },
+    {
+      "id": "annual-leap-anchor",
+      "plan": "team-annual",
+      "anchor": "2024-02-29",
+      "to": "pro-annual",
+      "at": "2027-11-02",
+      "expected": {
+        "period_start": "2027-02-28",
+        "period_end": "2028-02-29",
+        "credit": 35440,
+        "charge": 15932,
+        "total": -19508,
+        "new_anchor": "2024-02-29",
+        "next_renewal": "2028-02-29"
+      }
+    },
+    {
+      "id": "annual-to-monthly-reanchor",
+      "plan": "pro-annual",
+      "anchor": "2025-06-30",
+      "to": "pro-monthly",
+      "at": "2026-01-31",
+      "expected": {
+        "period_start": "2025-06-30",
+        "period_end": "2026-06-30",
+        "credit": 20137,
+        "charge": 4900,
+        "total": -15237,
+        "new_anchor": "2026-01-31",
+        "next_renewal": "2026-02-28"
+      }
+    },
+    {
+      "id": "price-change-inside-cycle",
+      "plan": "team-monthly",
+      "anchor": "2026-12-20",
+      "to": "pro-monthly",
+      "at": "2027-01-05",
+      "expected": {
+        "period_start": "2026-12-20",
+        "period_end": "2027-01-20",
+        "credit": 4790,
+        "charge": 2371,
+        "total": -2419,
+        "new_anchor": "2026-12-20",
+        "next_renewal": "2027-01-20"
+      }
+    },
+    {
+      "id": "change-on-anchor-day",
+      "plan": "starter-monthly",
+      "anchor": "2026-03-31",
+      "to": "team-monthly",
+      "at": "2026-03-31",
+      "expected": {
+        "period_start": "2026-03-31",
+        "period_end": "2026-04-30",
+        "credit": 1200,
+        "charge": 9900,
+        "total": 8700,
+        "new_anchor": "2026-03-31",
+        "next_renewal": "2026-04-30"
+      }
+    },
+    {
+      "id": "monthly-to-annual",
+      "plan": "starter-monthly",
+      "anchor": "2025-08-30",
+      "to": "starter-annual",
+      "at": "2026-02-27",
+      "expected": {
+        "period_start": "2026-01-30",
+        "period_end": "2026-02-28",
+        "credit": 41,
+        "charge": 12000,
+        "total": 11959,
+        "new_anchor": "2026-02-27",
+        "next_renewal": "2027-02-27"
+      }
+    },
+    {
+      "id": "downgrade-carries-credit",
+      "plan": "team-monthly",
+      "anchor": "2025-10-31",
+      "to": "starter-monthly",
+      "at": "2026-04-07",
+      "expected": {
+        "period_start": "2026-03-31",
+        "period_end": "2026-04-30",
+        "credit": 7590,
+        "charge": 920,
+        "total": -6670,
+        "new_anchor": "2025-10-31",
+        "next_renewal": "2026-04-30"
+      }
+    }
+  ]
+}

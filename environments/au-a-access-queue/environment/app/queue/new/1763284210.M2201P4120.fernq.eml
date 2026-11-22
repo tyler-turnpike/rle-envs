@@ -1,0 +1,17 @@
+Return-Path: <mara.lindqvist@fernhollow.dev>
+From: Mara Lindqvist <mara.lindqvist@fernhollow.dev>
+To: access-requests@fernhollow.dev
+Subject: [AR-2201] Access request: deploy-operator for priya.raman
+Date: Mon, 16 Nov 2026 09:10:10 +0000
+Message-ID: <AR-2201.1763284210@mail.fernhollow.dev>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Action: grant
+Principal: priya.raman
+Roles: deploy-operator
+Justification: Priya joins the deploy rotation from 1 Dec (approved in the Q4 access review).
+
+-- 
+Mara Lindqvist | Platform access reviews, Q4

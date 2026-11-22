@@ -1,0 +1,8 @@
+{
+  "subscriptions": [
+    {"id": "sub_1001", "customer": "cus_ashgrove", "plan": "starter-monthly", "anchor": "2025-03-14", "balance": 0},
+    {"id": "sub_1042", "customer": "cus_brightline", "plan": "pro-monthly", "anchor": "2024-01-31", "balance": 0},
+    {"id": "sub_1077", "customer": "cus_corvid", "plan": "team-annual", "anchor": "2024-02-29", "balance": -2500},
+    {"id": "sub_1103", "customer": "cus_dunmore", "plan": "pro-monthly", "anchor": "2025-08-30", "balance": 0}
+  ]
+}

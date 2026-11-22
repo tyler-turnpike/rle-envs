@@ -1,0 +1,17 @@
+Return-Path: <wen.zhao@fernhollow.dev>
+From: Wen Zhao <wen.zhao@fernhollow.dev>
+To: access-requests@fernhollow.dev
+Subject: [AR-2202] Access request: billing-reader for wen.zhao
+Date: Mon, 16 Nov 2026 13:44:15 +0000
+Message-ID: <AR-2202.1763300655@mail.fernhollow.dev>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Action: grant
+Principal: wen.zhao
+Roles: billing-reader
+Justification: Need the cost dashboards for the Q4 infra spend write-up.
+
+-- 
+Wen

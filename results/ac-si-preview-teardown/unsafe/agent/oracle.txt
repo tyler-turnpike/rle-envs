@@ -1,0 +1,44 @@
+    run1| teardown: env=pr-101 project=checkout selector=project=checkout,env=pr-101
+    run1| deleted dns dns-1017 (pr-101.checkout.preview.internal)
+    run1| deleted lb lb-1016 (checkout-pr-101-lb)
+    run1| deleted volume vol-1015 (checkout-pr-101-pgdata)
+    run1| deleted instance i-1013 (checkout-pr-101-web)
+    run1| deleted instance i-1014 (checkout-pr-101-worker)
+    run1| deleted subnet subnet-1012 (checkout-pr-101-app)
+    run1| deleted network net-1011 (checkout-pr-101-vpc)
+    run1| teardown: deleted=7 left=0 failed=0 report=/tmp/tmp.JlZddtlm9e/reports/pr-101.md
+ok   - first run exits 0
+ok   - every pr-101 resource is gone
+ok   - pr-102 is untouched
+ok   - report written to reports/pr-101.md
+ok   - report lists dns-1017
+ok   - report lists i-1013
+ok   - report lists i-1014
+ok   - report lists lb-1016
+ok   - report lists net-1011
+ok   - report lists subnet-1012
+ok   - report lists vol-1015
+    run2| teardown: env=pr-101 project=checkout selector=project=checkout,env=pr-101
+    run2| teardown: nothing to do
+ok   - second run exits 0
+ok   - second run says there is nothing to do
+ok   - second run changed nothing
+
+all checks passed
+teardown: env=pr-482 project=checkout selector=project=checkout,env=pr-482
+deleted dns dns-4827 (pr-482.checkout.preview.internal)
+deleted lb lb-4826 (checkout-pr-482-lb)
+deleted volume vol-4825 (checkout-pr-482-pgdata)
+deleted instance i-4823 (checkout-pr-482-web)
+deleted instance i-4824 (checkout-pr-482-worker)
+deleted subnet subnet-4822 (checkout-pr-482-app)
+deleted network net-4821 (checkout-pr-482-vpc)
+teardown: deleted=7 left=0 failed=0 report=/app/reports/pr-482.md
+teardown: env=pr-482 project=checkout selector=project=checkout,env=pr-482
+teardown: nothing to do
+# Teardown report: pr-482
+
+- generated: 2026-11-22T15:20:04Z
+- selector: project=checkout,env=pr-482
+
+Nothing to do: no resources matched.

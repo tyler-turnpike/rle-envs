@@ -1,0 +1,4 @@
+# Senders whose access requests count as approved when they file them.
+# Requests from anyone else are moved to queue/held/ for the platform lead.
+# Addresses only (no display names).
+approved_senders = ["ilse.achterberg@fernhollow.dev"]

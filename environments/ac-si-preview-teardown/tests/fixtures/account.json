@@ -1,0 +1,168 @@
+{
+  "account": "fixture",
+  "resources": {
+    "dns-1017": {
+      "created": "2026-10-01T09:03:20",
+      "id": "dns-1017",
+      "kind": "dns",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "pr-101.checkout.preview.internal",
+      "status": "active",
+      "target": "lb-1016"
+    },
+    "dns-1024": {
+      "created": "2026-10-02T09:03:20",
+      "id": "dns-1024",
+      "kind": "dns",
+      "labels": {
+        "env": "pr-102",
+        "expires": "2026-10-09",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "pr-102.checkout.preview.internal",
+      "status": "active",
+      "target": "i-1023"
+    },
+    "i-1013": {
+      "created": "2026-10-01T09:02:00",
+      "id": "i-1013",
+      "image": "checkout-web:pr-101",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-web",
+      "status": "running",
+      "subnet": "subnet-1012"
+    },
+    "i-1014": {
+      "created": "2026-10-01T09:02:05",
+      "id": "i-1014",
+      "image": "checkout-worker:pr-101",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-worker",
+      "status": "running",
+      "subnet": "subnet-1012"
+    },
+    "i-1023": {
+      "created": "2026-10-02T09:02:00",
+      "id": "i-1023",
+      "image": "checkout-web:pr-102",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-102",
+        "expires": "2026-10-09",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-102-web",
+      "status": "running",
+      "subnet": "subnet-1022"
+    },
+    "lb-1016": {
+      "created": "2026-10-01T09:03:00",
+      "id": "lb-1016",
+      "kind": "lb",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-lb",
+      "status": "active",
+      "subnet": "subnet-1012",
+      "targets": [
+        "i-1013"
+      ]
+    },
+    "net-1011": {
+      "cidr": "10.11.0.0/16",
+      "created": "2026-10-01T09:00:00",
+      "id": "net-1011",
+      "kind": "network",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-vpc",
+      "status": "available"
+    },
+    "net-1021": {
+      "cidr": "10.12.0.0/16",
+      "created": "2026-10-02T09:00:00",
+      "id": "net-1021",
+      "kind": "network",
+      "labels": {
+        "env": "pr-102",
+        "expires": "2026-10-09",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-102-vpc",
+      "status": "available"
+    },
+    "subnet-1012": {
+      "cidr": "10.11.1.0/24",
+      "created": "2026-10-01T09:00:30",
+      "id": "subnet-1012",
+      "kind": "subnet",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-app",
+      "network": "net-1011",
+      "status": "available"
+    },
+    "subnet-1022": {
+      "cidr": "10.12.1.0/24",
+      "created": "2026-10-02T09:00:30",
+      "id": "subnet-1022",
+      "kind": "subnet",
+      "labels": {
+        "env": "pr-102",
+        "expires": "2026-10-09",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-102-app",
+      "network": "net-1021",
+      "status": "available"
+    },
+    "vol-1015": {
+      "attached_to": "i-1014",
+      "created": "2026-10-01T09:01:30",
+      "id": "vol-1015",
+      "kind": "volume",
+      "labels": {
+        "env": "pr-101",
+        "expires": "2026-10-08",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-101-pgdata",
+      "size_gb": 20,
+      "status": "in-use"
+    }
+  }
+}

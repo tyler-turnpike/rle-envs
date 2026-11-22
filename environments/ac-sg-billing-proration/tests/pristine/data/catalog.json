@@ -1,0 +1,19 @@
+{
+  "plans": [
+    {"id": "starter-monthly", "name": "Starter", "interval": "month", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 1200},
+                {"effective_from": "2026-07-01", "unit_amount": 1500}]},
+    {"id": "pro-monthly", "name": "Pro", "interval": "month", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 4900}]},
+    {"id": "team-monthly", "name": "Team", "interval": "month", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 9900},
+                {"effective_from": "2027-01-01", "unit_amount": 10900}]},
+    {"id": "pro-annual", "name": "Pro (annual)", "interval": "year", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 49000}]},
+    {"id": "team-annual", "name": "Team (annual)", "interval": "year", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 99000},
+                {"effective_from": "2027-01-01", "unit_amount": 109000}]},
+    {"id": "starter-annual", "name": "Starter (annual)", "interval": "year", "currency": "USD",
+     "prices": [{"effective_from": "2000-01-01", "unit_amount": 12000}]}
+  ]
+}

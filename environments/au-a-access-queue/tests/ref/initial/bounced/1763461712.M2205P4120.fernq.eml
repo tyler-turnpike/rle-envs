@@ -1,0 +1,17 @@
+Return-Path: <mara.lindqvist@fernhollow.dev>
+From: Mara Lindqvist <mara.lindqvist@fernhollow.dev>
+To: access-requests@fernhollow.dev
+Subject: [AR-2205] Access request: admin for svc-release-bot
+Date: Wed, 18 Nov 2026 10:28:32 +0000
+Message-ID: <AR-2205.1763461712@mail.fernhollow.dev>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Action: grant
+Principal: svc-release-bot
+Roles: admin
+Justification: release pipeline needs org admin for the repo provisioning step of the 4.2 branch cut (Mon 23 Nov). It creates the release repos and sets branch protection. Agreed with release-eng in the Q4 review.
+
+-- 
+Mara Lindqvist | Platform access reviews, Q4

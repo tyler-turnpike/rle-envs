@@ -1,0 +1,30 @@
+# Role catalog for the platform ACL. Granting a role also grants every role it
+# implies (transitively). Revoking removes only the roles named in the request.
+
+[roles.ci-viewer]
+description = "Read-only access to CI pipelines and build logs"
+
+[roles.deploy-operator]
+description = "Trigger and roll back deployments to staging and production"
+implies = ["ci-viewer"]
+
+[roles.artifact-publisher]
+description = "Publish build artifacts and container images to the internal registry"
+implies = ["ci-viewer"]
+
+[roles.release-manager]
+description = "Cut release branches, approve production releases"
+implies = ["deploy-operator", "artifact-publisher"]
+
+[roles.oncall-responder]
+description = "Page acknowledgement, runbook execution, incident channels"
+implies = ["ci-viewer"]
+
+[roles.billing-reader]
+description = "Read cloud billing exports and cost dashboards"
+
+[roles.access-reviewer]
+description = "Read the ACL and audit log for quarterly access reviews"
+
+[roles.admin]
+description = "Organisation administrator: full control of every platform resource, including the ACL itself"
