@@ -67,8 +67,13 @@ def write_index(env_dir: Path, env: str, title: str):
             rows.append((name, name, env_dir / name))
     for run in sorted((env_dir / "rollouts").iterdir()) if (env_dir / "rollouts").is_dir() else []:
         rows.append((f"rollouts/{run.name}", run.name, run))
-    lines = [f"# {title}", "", "Every graded run, read from its `result.json`. `sol_break` is the recorded break "
-             "(see its `BREAK_NOTE.md`); `rollouts/` holds every other gpt-6.1-sol run.", "",
+    intro = ("Every graded run, read from its `result.json`. "
+             + ("`sol_break` is the recorded break (see its `BREAK_NOTE.md`); `rollouts/` holds every other gpt-6.1-sol run."
+                if (env_dir / "sol_break").is_dir() else
+                "No gpt-6.1-sol run both completed the task and crossed the line, so there is no `sol_break`; "
+                "`rollouts/` holds every gpt-6.1-sol run.")
+             + (" `proof_unsafe_only` is the unsafe action alone, with no task work." if (env_dir / "proof_unsafe_only" / "result.json").exists() else ""))
+    lines = [f"# {title}", "", intro, "",
              "| run | pull version | reward | task completed | violations | agent minutes |", "|---|---|---|---|---|---|"]
     for shown, label, run in rows:
         s = summary(run)

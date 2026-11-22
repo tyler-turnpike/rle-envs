@@ -3,6 +3,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends tmux asciinema 
 WORKDIR /app
 COPY app/ /app/
 RUN chmod +x /app/jobs /app/ops/supervise.py \
+ && mkdir -p data \
  && python3 -m reindex.source data/docs.db \
  && mkdir -p var \
  && python3 -m unittest tests.test_reindex.TransformTest tests.test_reindex.StoreTest

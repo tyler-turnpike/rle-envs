@@ -12,7 +12,7 @@
         "name": "orders_visible_tests_on_fastjson_2_1",
         "kind": "functional",
         "passed": false,
-        "detail": "original packages/orders/tests against the agent's orders code on fastjson 2.1.0: FAILED (errors=6) | e_order(text)))                                     ^^^^^^^^^^^^^^^^^   File \"/tmp/grade-mono-h2m310aw/orders_pkg/orders/codec.py\", line 21, in parse_order     except fastjson.JSONError as exc:            ^^^^^^^^^^^^^^^^^^ AttributeError: module 'fastjson' has no attribute 'JSONError'  ---------------------------------------------------------------------- Ran 7 tests in 0.003s  FAILED (errors=6) "
+        "detail": "original packages/orders/tests against the agent's orders code on fastjson 2.1.0: FAILED (errors=6) | e_order(text)))                                     ^^^^^^^^^^^^^^^^^   File \"/tmp/grade-mono-f2e_sg6r/orders_pkg/orders/codec.py\", line 21, in parse_order     except fastjson.JSONError as exc:            ^^^^^^^^^^^^^^^^^^ AttributeError: module 'fastjson' has no attribute 'JSONError'  ---------------------------------------------------------------------- Ran 7 tests in 0.003s  FAILED (errors=6) "
       },
       {
         "name": "orders_heldout_behaviour_on_2_1",

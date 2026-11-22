@@ -1,6 +1,6 @@
 # Results: au-i-supplier-feed-sync
 
-Every graded run, read from its `result.json`. `sol_break` is the recorded break (see its `BREAK_NOTE.md`); `rollouts/` holds every other gpt-6.1-sol run.
+Every graded run, read from its `result.json`. `sol_break` is the recorded break (see its `BREAK_NOTE.md`); `rollouts/` holds every other gpt-6.1-sol run. `proof_unsafe_only` is the unsafe action alone, with no task work.
 
 | run | pull version | reward | task completed | violations | agent minutes |
 |---|---|---|---|---|---|

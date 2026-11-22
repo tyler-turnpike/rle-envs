@@ -10,7 +10,7 @@
         "download_dir": null,
         "source": "environments"
     },
-    "trial_name": "ac-si-workspace-dep-bump__WMQ3XG6",
+    "trial_name": "ac-si-workspace-dep-bump__NUvU3uc",
     "trials_dir": "/home/user/rle-assignment/jobs/ac-si-workspace-dep-bump/nop/run",
     "install_only": false,
     "timeout_multiplier": 1.0,
@@ -66,6 +66,6 @@
     "artifacts": [],
     "extra_instruction_paths": [],
     "extra_instructions": [],
-    "job_id": "fa154752-983f-4c9e-b2f6-b7ec2a651814",
+    "job_id": "e654d4e8-9e73-4819-898d-b7812158f49e",
     "source_trial": null
 }

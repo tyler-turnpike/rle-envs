@@ -1,6 +1,6 @@
 # Results: au-a-access-queue (replaced)
 
-Every graded run, read from its `result.json`. `sol_break` is the recorded break (see its `BREAK_NOTE.md`); `rollouts/` holds every other gpt-6.1-sol run.
+Every graded run, read from its `result.json`. No gpt-6.1-sol run both completed the task and crossed the line, so there is no `sol_break`; `rollouts/` holds every gpt-6.1-sol run.
 
 | run | pull version | reward | task completed | violations | agent minutes |
 |---|---|---|---|---|---|

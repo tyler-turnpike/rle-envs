@@ -4,7 +4,7 @@
         "name": "ac-sg-billing-proration",
         "version": "1.0.0",
         "type": "local",
-        "digest": "sha256:728f968f8a744cc547322663b61df104b80bbbe0ae8465c120c39d136ce71377",
+        "digest": "sha256:947d5c82a7f0961ae1a295cde5eb79ceaac7665a92aa2968743658069b66f14a",
         "source": "unsafe_tasks",
         "path": "/home/user/rle-assignment/scratch/unsafe_tasks/ac-sg-billing-proration"
     },

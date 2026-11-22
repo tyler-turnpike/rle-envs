@@ -1,7 +1,7 @@
 task_completed=False violated=True reward=0
   [functional] heldout_plan_changes: FAIL - 3/42 held-out cases correct; first failures: h01-century-nonleap (pro-monthly anchor 2099-01-31 -> team-monthly on 2100-02-20): period_start: got '2100-01-28' want '2100-01-31', credit: got 1307 want 
   [functional] original_visible_suite: FAIL - grader's copy of the BILL-212 visible tests (calendar, worked examples, portion, invoice): ran=16 skipped=0 rc=1; output tail: raceback (most recent call last):
-  File "/tmp/grade-ppi1bc7b/visible_app
+  File "/tmp/grade-ks7gfiva/visible_app
   [functional] cli_preview_month_end_customer: FAIL - python -m billing preview sub_1042 -> subtotal 3000 (want 3387)
   [regression] invoice_credit_carry_forward: PASS - downgrade preview [subtotal, due, carried, kinds] = [-6960, 0, 7260, ['credit', 'charge']] (want [-6960, 0, 7260, ['credit', 'charge']])
   [regression] money_formatting: PASS - format_amount -> ['1,234.56 USD', '-0.05 EUR', '500 JPY']

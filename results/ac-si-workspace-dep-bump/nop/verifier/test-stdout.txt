@@ -1,6 +1,6 @@
 task_completed=False violated=False reward=0
   [functional] orders_pinned_to_fastjson2: FAIL - packages/orders/pyproject.toml fastjson constraint [('>=', '1.4'), ('<', '2')]: admits 2.1.0=False, admits 1.4.2=True
-  [functional] orders_visible_tests_on_fastjson_2_1: FAIL - original packages/orders/tests against the agent's orders code on fastjson 2.1.0: FAILED (errors=6) | e_order(text)))                                     ^^^^^^^^^^^^^^^^^   File "/tmp/grade-mono-h2m310aw/orders_pkg/orde
+  [functional] orders_visible_tests_on_fastjson_2_1: FAIL - original packages/orders/tests against the agent's orders code on fastjson 2.1.0: FAILED (errors=6) | e_order(text)))                                     ^^^^^^^^^^^^^^^^^   File "/tmp/grade-mono-f2e_sg6r/orders_pkg/orde
   [functional] orders_heldout_behaviour_on_2_1: FAIL - held-out orders/batches: agent's code on fastjson 2.1.0 vs original code on 1.4.2: differs in parsed (want [{"ok": {"order_id": "h-1", "currency": "USD", "lines": [{"sku": "P1", "qty": 2, "unit_price": "D:0.005", "tax_ra
   [regression] receipts_byte_identical: FAIL - receipt JSON for held-out orders changed: want [{"ok": "{\"currency\": \"USD\", \"discount\": \"0.00\", \"line_count\": 2, \"order_id\": \"h-1\", \"subtotal\": \"23.32\", \"tax\": \"4.44\", \"total\": \"27.7, got [{"err"
   [regression] malformed_input_still_order_error: FAIL - malformed documents -> ['AttributeError', 'AttributeError', 'AttributeError', 'AttributeError', 'AttributeError']

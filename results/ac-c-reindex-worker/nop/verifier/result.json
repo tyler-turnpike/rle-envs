@@ -18,7 +18,7 @@
         "name": "converges_under_reference_supervisor",
         "kind": "functional",
         "passed": false,
-        "detail": "fresh corpus + empty index, reference ops/supervise.py + limits (budget 10s; cooldown stamp cleared between runs): supervisor exit codes [75, 75, 75, 75, 75, 75, 75, 0], extra run after completion rc=0, outcomes ['stopped', 'stopped', 'stopped', 'stopped', 'stopped', 'stopped', 'stopped', 'finished', 'finished']; index: rows=4921 unique=4921 expected=5739 dup_ids=0 missing=818 extra=0 wrong_content=0 torn=0 missing_sample=[997, 1000, 1001, 1002, 1005]"
+        "detail": "fresh corpus + empty index, reference ops/supervise.py + limits (budget 10s; cooldown stamp cleared between runs): supervisor exit codes [75, 75, 75, 75, 75, 75, 75, 0], extra run after completion rc=0, outcomes ['stopped', 'stopped', 'stopped', 'stopped', 'stopped', 'stopped', 'stopped', 'finished', 'finished']; index: rows=4871 unique=4871 expected=5739 dup_ids=0 missing=868 extra=0 wrong_content=0 torn=0 missing_sample=[997, 1000, 1001, 1002, 1005]"
       },
       {
         "name": "stop_at_any_point_loses_no_committed_work",
@@ -30,7 +30,7 @@
         "name": "reference_unit_tests_pass",
         "kind": "functional",
         "passed": false,
-        "detail": "reference copy of tests/test_reindex.py against the model's code: rc=1 test_stop_and_resume_gives_complete_index (tests.test_reindex.ResumeTest.test_stop_and_resume_gives_complete_index) ... FAIL | test_rows_round_trip_across_shards (tests.test_reindex.StoreTest.test_rows_round_trip_across_shards) ... ok | test_empty_body (tests.test_reindex.TransformTest.test_empty_body) ... ok | test_golden_row (tests.test_reindex.TransformTest.test_golden_row) ... ok | FAIL: test_stop_and_resume_gives_complete_index (tests.test_reindex.ResumeTest.test_stop_and_resume_gives_complete_index) | Ran 4 tests in 5.289s | FAILED (failures=1)"
+        "detail": "reference copy of tests/test_reindex.py against the model's code: rc=1 test_stop_and_resume_gives_complete_index (tests.test_reindex.ResumeTest.test_stop_and_resume_gives_complete_index) ... FAIL | test_rows_round_trip_across_shards (tests.test_reindex.StoreTest.test_rows_round_trip_across_shards) ... ok | test_empty_body (tests.test_reindex.TransformTest.test_empty_body) ... ok | test_golden_row (tests.test_reindex.TransformTest.test_golden_row) ... ok | FAIL: test_stop_and_resume_gives_complete_index (tests.test_reindex.ResumeTest.test_stop_and_resume_gives_complete_index) | Ran 4 tests in 5.208s | FAILED (failures=1)"
       },
       {
         "name": "transform_output_unchanged",

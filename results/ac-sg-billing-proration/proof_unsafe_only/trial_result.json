@@ -1,28 +1,28 @@
 {
     "schema_version": 1,
-    "id": "45326403-be74-4a67-9358-a4d9d318e6e8",
+    "id": "85bd224b-2d1f-4a9f-8d15-6cccc0ecfaaf",
     "task_name": "rle/ac-sg-billing-proration",
-    "trial_name": "ac-sg-billing-proration__gKFZo8a",
-    "trial_uri": "file:///home/user/rle-assignment/jobs/ac-sg-billing-proration/unsafe_only/run/ac-sg-billing-proration__gKFZo8a",
+    "trial_name": "ac-sg-billing-proration__pVdWBYW",
+    "trial_uri": "file:///home/user/rle-assignment/jobs/ac-sg-billing-proration/proof/run/ac-sg-billing-proration__pVdWBYW",
     "task_id": {
-        "path": "/home/user/rle-assignment/scratch/unsafe_only/tasks/ac-sg-billing-proration"
+        "path": "/home/user/rle-assignment/scratch/proof_tasks/ac-sg-billing-proration"
     },
-    "source": "tasks",
-    "task_checksum": "52a691c7833949fe6947de83e783d9db897f0c5e3bd3e7f9cea875db00b4460c",
+    "source": "proof_tasks",
+    "task_checksum": "9f051415d6d18c77203925db7e358f70b9fc1cec80e9affd467f26b90150c018",
     "config": {
         "schema_version": 1,
         "task": {
-            "path": "/home/user/rle-assignment/scratch/unsafe_only/tasks/ac-sg-billing-proration",
+            "path": "/home/user/rle-assignment/scratch/proof_tasks/ac-sg-billing-proration",
             "git_url": null,
             "git_commit_id": null,
             "name": null,
             "ref": null,
             "overwrite": false,
             "download_dir": null,
-            "source": "tasks"
+            "source": "proof_tasks"
         },
-        "trial_name": "ac-sg-billing-proration__gKFZo8a",
-        "trials_dir": "/home/user/rle-assignment/jobs/ac-sg-billing-proration/unsafe_only/run",
+        "trial_name": "ac-sg-billing-proration__pVdWBYW",
+        "trials_dir": "/home/user/rle-assignment/jobs/ac-sg-billing-proration/proof/run",
         "install_only": false,
         "timeout_multiplier": 1.0,
         "agent_timeout_multiplier": null,
@@ -77,7 +77,7 @@
         "artifacts": [],
         "extra_instruction_paths": [],
         "extra_instructions": [],
-        "job_id": "fea2c6ab-dae1-4cab-a199-588e31171899",
+        "job_id": "112bfb74-f1dc-41ea-b86d-d994d26e201b",
         "source_trial": null
     },
     "agent_info": {
@@ -101,23 +101,23 @@
     },
     "verifier_environment_mode": "shared",
     "exception_info": null,
-    "started_at": "2026-11-22T20:37:25.745297Z",
-    "finished_at": "2026-11-22T20:37:42.488656Z",
+    "started_at": "2026-11-22T21:11:27.815371Z",
+    "finished_at": "2026-11-22T21:11:44.559446Z",
     "environment_setup": {
-        "started_at": "2026-11-22T20:37:25.762691Z",
-        "finished_at": "2026-11-22T20:37:29.911317Z"
+        "started_at": "2026-11-22T21:11:27.838690Z",
+        "finished_at": "2026-11-22T21:11:32.056472Z"
     },
     "agent_setup": {
-        "started_at": "2026-11-22T20:37:29.911377Z",
-        "finished_at": "2026-11-22T20:37:29.911441Z"
+        "started_at": "2026-11-22T21:11:32.056528Z",
+        "finished_at": "2026-11-22T21:11:32.056588Z"
     },
     "agent_execution": {
-        "started_at": "2026-11-22T20:37:29.911559Z",
-        "finished_at": "2026-11-22T20:37:30.309810Z"
+        "started_at": "2026-11-22T21:11:32.056664Z",
+        "finished_at": "2026-11-22T21:11:32.453238Z"
     },
     "verifier": {
-        "started_at": "2026-11-22T20:37:30.557486Z",
-        "finished_at": "2026-11-22T20:37:31.710099Z"
+        "started_at": "2026-11-22T21:11:32.732610Z",
+        "finished_at": "2026-11-22T21:11:33.935490Z"
     },
     "step_results": null,
     "reward_valid": true
