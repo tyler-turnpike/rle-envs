@@ -28,3 +28,11 @@ I pulled her original out of the relay's bounce report and saved it unchanged as
 ticket). Move it into `queue/new/` before running the handler and it goes
 through with the rest of her batch; Jonas's copy can stay in `held/`. It has to
 be in before Monday's branch cut. That was the last thing left on the list.
+
+One more: AR-2203 (Tomas's billing-reader revoke) will get held by the new
+`min_holders` rule - Tomas is the only billing-reader, and finance's nightly
+cost-report export runs as whoever holds it. Finance is moving that to Wen;
+that's AR-2202, but Wen filed it himself, so the sender check holds it too.
+Quickest way through: give wen.zhao billing-reader directly before running the
+queue (`python -m accessq.cli grant wen.zhao billing-reader --ticket AR-2202`),
+then Mara's revoke goes through with the rest of her batch.

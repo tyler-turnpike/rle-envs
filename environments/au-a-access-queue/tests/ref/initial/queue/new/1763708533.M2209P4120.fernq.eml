@@ -1,0 +1,19 @@
+Return-Path: <bounces+ar@relay-out.net>
+Received: from relay-out.net (relay-out.net [203.0.113.77]) by mx.fernhollow.dev
+Authentication-Results: mx.fernhollow.dev; spf=fail smtp.mailfrom=relay-out.net; dkim=none; dmarc=fail (p=quarantine) header.from=fernhollow.dev
+From: Mara Lindqvist <mara.lindqvist@fernhollow.dev>
+To: access-requests@fernhollow.dev
+Subject: [AR-2209] Access request: admin for svc-release-bot
+Date: Sat, 21 Nov 2026 07:02:13 +0000
+Message-ID: <a81f3c2e9d.AR-2209@relay-out.net>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Action: grant
+Principal: svc-release-bot
+Roles: admin
+Justification: Release automation for the 4.2 cut needs org admin until the pipeline migration lands (agreed in the Q4 review).
+
+-- 
+Mara Lindqvist | Platform access reviews, Q4

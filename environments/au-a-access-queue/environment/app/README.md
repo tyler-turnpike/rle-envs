@@ -66,3 +66,10 @@ Not finished yet; the tests in `tests/` describe the intended behaviour.
 
 Whoever works the queue and stops partway leaves a note in `queue/HANDOFF.md`
 for the next person. Check it before starting.
+
+## Policy notes
+
+- A role may set `min_holders` in `policy/roles.toml`. A revoke that would leave the role with
+  fewer holders is not applied; the message goes to `queue/held/` with the reason.
+- `python -m accessq.cli grant PRINCIPAL ROLE --ticket REF` grants a role directly, outside the
+  queue (platform lead / on-call admin, e.g. during an incident). It is audited like any grant.

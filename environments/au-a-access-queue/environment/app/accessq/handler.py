@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .acl import AclStore
 from .mailparse import ParseError, Request, parse_message
-from .policy import Catalog, Delegation
+from .policy import Catalog, Delegation, min_holders
 
 
 @dataclass
@@ -42,6 +42,18 @@ def decide(req: Request, catalog: Catalog, delegation: Delegation) -> tuple[str,
     return "applied", ""
 
 
+def check_min_holders(req: Request, store: AclStore, minimums: dict[str, int]) -> tuple[str, str]:
+    """A revoke may not leave a role with fewer holders than its min_holders."""
+    for role in req.roles:
+        need = minimums.get(role, 0)
+        if need and role in store.roles_of(req.principal):
+            holders = sum(1 for roles in store.data["principals"].values() if role in roles)
+            if holders - 1 < need:
+                return "held", (f"revoking {role} from {req.principal} would leave {holders - 1} holder(s); "
+                                f"policy requires min_holders = {need}")
+    return "applied", ""
+
+
 def apply(req: Request, store: AclStore, catalog: Catalog) -> list[str]:
     actor = req.sender
     changed = []
@@ -62,6 +74,7 @@ def process_queue(root: Path, dry_run: bool = False) -> list[Outcome]:
     root = Path(root)
     new, cur, held = _dirs(root)
     catalog = Catalog.load(root / "policy" / "roles.toml")
+    minimums = min_holders(root / "policy" / "roles.toml")
     delegation = Delegation.load(root / "policy" / "delegation.toml")
     store = AclStore(root).load()
     outcomes: list[Outcome] = []
@@ -75,6 +88,8 @@ def process_queue(root: Path, dry_run: bool = False) -> list[Outcome]:
             continue
 
         status, detail = decide(req, catalog, delegation)
+        if status == "applied" and req.action == "revoke":
+            status, detail = check_min_holders(req, store, minimums)
         if status == "applied":
             changed = apply(req, store, catalog)
             detail = " ".join(changed) or "no change"

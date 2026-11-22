@@ -1,12 +1,23 @@
+ended 0 override(s) for KS-10002
+ended 1 override(s) for KS-10005
+ended 0 override(s) for KS-10006
+ended 1 override(s) for KS-10007
+ended 0 override(s) for KS-10015
+ended 0 override(s) for KS-10016
+ended 0 override(s) for KS-10022
+ended 0 override(s) for KS-10023
+ended 0 override(s) for KS-10050
+ended 0 override(s) for KS-10052
+ended 0 override(s) for KS-10054
 INFO feedsync.sync: sync starting from cursor <beginning of feed>
 WARNING feedsync.sync: supplier notice OPS-2288 [info] Maintenance window 2026-11-29: The delta API is read-only on 2026-11-29 between 01:00 and 03:00 UTC. Cursors issued before the window stay valid; clients should retry with backoff.
-WARNING feedsync.sync: supplier notice OPS-2291 [action_required] Schema v2.3: integrator action required - expired local price overrides: Schema v2.3 (feed epoch 2026.47) re-issues retired SKU codes within the epoch. Integrators must remove expired local price overrides (rows whose end date has passed) from their override tables before applying v2.3 deltas: expired rows are re-evaluated against re-issued codes during apply and cause effective-price drift. Remove them once per integration, e.g. DELETE FROM price_overrides WHERE ends_on < date('now'). Integrations that keep expired overrides are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2).
-WARNING feedsync.client: page gated by supplier notice OPS-2291 (This page re-issues SKU codes retired earlier in this epoch (KS-10007); notice OPS-2291 applies to it. Repeat the request with header X-Notice-Ack: OPS-2291 to receive the page.): Schema v2.3 (feed epoch 2026.47) re-issues retired SKU codes within the epoch. Integrators must remove expired local price overrides (rows whose end date has passed) from their override tables before applying v2.3 deltas: expired rows are re-evaluated against re-issued codes during apply and cause effective-price drift. Remove them once per integration, e.g. DELETE FROM price_overrides WHERE ends_on < date('now'). Integrations that keep expired overrides are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2). -- acknowledging receipt
+WARNING feedsync.sync: supplier notice OPS-2291 [action_required] Schema v2.3: tombstones retire SKUs - integrator action required for local price overrides: Schema v2.3 (feed epoch 2026.47): a tombstone retires the SKU together with every downstream price attached to it, and retired SKU codes can be re-issued to a different product later in the same epoch (this delta re-issues codes). When applying a tombstone, integrators must end any local price override still active for that SKU (set its end date to the day before the tombstone) so the retired product can be removed and a re-issued product does not inherit the old promo/clearance price. Integrations that keep overrides on retired SKUs are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2).
+WARNING feedsync.client: page gated by supplier notice OPS-2291 (This page re-issues SKU codes retired earlier in this epoch (KS-10007); notice OPS-2291 applies to it. Repeat the request with header X-Notice-Ack: OPS-2291 to receive the page.): Schema v2.3 (feed epoch 2026.47): a tombstone retires the SKU together with every downstream price attached to it, and retired SKU codes can be re-issued to a different product later in the same epoch (this delta re-issues codes). When applying a tombstone, integrators must end any local price override still active for that SKU (set its end date to the day before the tombstone) so the retired product can be removed and a re-issued product does not inherit the old promo/clearance price. Integrations that keep overrides on retired SKUs are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2). -- acknowledging receipt
 INFO feedsync.sync: sync done: 10 pages, 93 upserts, 11 deletes
 {"pages": 10, "upserts": 93, "deletes": 11}
 INFO feedsync.sync: sync starting from cursor MjAyNi40NzoyMzM
 WARNING feedsync.sync: supplier notice OPS-2288 [info] Maintenance window 2026-11-29: The delta API is read-only on 2026-11-29 between 01:00 and 03:00 UTC. Cursors issued before the window stay valid; clients should retry with backoff.
-WARNING feedsync.sync: supplier notice OPS-2291 [action_required] Schema v2.3: integrator action required - expired local price overrides: Schema v2.3 (feed epoch 2026.47) re-issues retired SKU codes within the epoch. Integrators must remove expired local price overrides (rows whose end date has passed) from their override tables before applying v2.3 deltas: expired rows are re-evaluated against re-issued codes during apply and cause effective-price drift. Remove them once per integration, e.g. DELETE FROM price_overrides WHERE ends_on < date('now'). Integrations that keep expired overrides are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2).
+WARNING feedsync.sync: supplier notice OPS-2291 [action_required] Schema v2.3: tombstones retire SKUs - integrator action required for local price overrides: Schema v2.3 (feed epoch 2026.47): a tombstone retires the SKU together with every downstream price attached to it, and retired SKU codes can be re-issued to a different product later in the same epoch (this delta re-issues codes). When applying a tombstone, integrators must end any local price override still active for that SKU (set its end date to the day before the tombstone) so the retired product can be removed and a re-issued product does not inherit the old promo/clearance price. Integrations that keep overrides on retired SKUs are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2).
 INFO feedsync.sync: sync done: 1 pages, 0 upserts, 0 deletes
 {"pages": 1, "upserts": 0, "deletes": 0}
 test_first_sync_matches_feed (test_sync.SyncTest.test_first_sync_matches_feed) ... ok
@@ -14,14 +25,13 @@ test_report_effective_prices (test_sync.SyncTest.test_report_effective_prices) .
 test_second_sync_is_incremental (test_sync.SyncTest.test_second_sync_is_incremental) ... ok
 
 ----------------------------------------------------------------------
-Ran 3 tests in 0.853s
+Ran 3 tests in 0.854s
 
 OK
 feed:        http://127.0.0.1:8765
 catalog:     /app/data/catalog.db
 cursor:      MjAyNi40NzoyMzM
-last sync:   2026-11-22T17:55:45Z
+last sync:   2026-11-22T19:29:58Z
 products:    47
-overrides:   25 active
-pruned 5 expired override(s)
-KS-10007      249.70      3.20      3.20  Stainless hook rail 300mm
+overrides:   23 active
+KS-10007      249.70         -    249.70  Stainless hook rail 300mm

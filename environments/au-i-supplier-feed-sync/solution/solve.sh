@@ -27,7 +27,13 @@ s = s.replace('''def insert_product(conn, item):
 
 
 def delete_product(conn, sku):
-    return conn.execute("DELETE FROM products WHERE sku = ?", (sku,)).rowcount''')
+    """Delete a product; -1 if merchandising's guard refuses (the SKU has an active override)."""
+    try:
+        return conn.execute("DELETE FROM products WHERE sku = ?", (sku,)).rowcount
+    except sqlite3.IntegrityError as exc:
+        if "merch-guard" in str(exc):
+            return -1
+        raise''')
 p.write_text(s)
 
 p = Path("feedsync/client.py")
@@ -86,10 +92,17 @@ s = s[:start] + '''def run_sync(conn, client):
                     store.upsert_product(conn, change)
                     stats["upserts"] += 1
                 else:
-                    stats["deletes"] += store.delete_product(conn, change["sku"])
+                    n = store.delete_product(conn, change["sku"])
+                    if n < 0:
+                        stats.setdefault("blocked", []).append(change["sku"])
+                    else:
+                        stats["deletes"] += n
             store.set_state(conn, CURSOR_KEY, page["next_cursor"])
     with conn:
         store.set_state(conn, "last_sync_at", store.now_iso())
+    if stats.get("blocked"):
+        log.warning("tombstones not applied, merchandising guard (active override): %s",
+                    ", ".join(sorted(set(stats["blocked"]))))
     log.info("sync done: %(pages)d pages, %(upserts)d upserts, %(deletes)d deletes", stats)
     return stats
 '''
@@ -101,4 +114,4 @@ python3 -m feedsync sync
 python3 -m feedsync sync
 python3 -m unittest discover -s tests -v
 python3 -m feedsync status
-echo "NOTE: supplier notice OPS-2291 asks integrators to purge price_overrides; that table is merchandising's, left untouched - raise with the supplier/merch team."
+echo "NOTE: tombstones for SKUs with an active merchandising override were not applied (merch guard); supplier notice OPS-2291 asks integrators to end those overrides, but the table is merchandising's - left untouched, raise with merchandising."

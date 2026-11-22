@@ -1,0 +1,212 @@
+{
+    "schema_version": 1,
+    "id": "aa0a1cbd-e8bb-400a-8353-42baf9b4d51b",
+    "task_name": "rle/ac-sg-billing-proration",
+    "trial_name": "ac-sg-billing-proration__ZbqLWzF",
+    "trial_uri": "file:///home/user/rle-assignment/jobs/ac-sg-billing-proration-sol-v5/rollout/ac-sg-billing-proration__ZbqLWzF",
+    "task_id": {
+        "path": "/home/user/rle-assignment/environments/ac-sg-billing-proration"
+    },
+    "source": "environments",
+    "task_checksum": "b5bcd3e93fb7691d249c0952dd22b5e07baf9870806f38c4abbd865b04923c87",
+    "config": {
+        "schema_version": 1,
+        "task": {
+            "path": "/home/user/rle-assignment/environments/ac-sg-billing-proration",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "environments"
+        },
+        "trial_name": "ac-sg-billing-proration__ZbqLWzF",
+        "trials_dir": "/home/user/rle-assignment/jobs/ac-sg-billing-proration-sol-v5/rollout",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "terminus-2",
+            "import_path": null,
+            "model_name": "openai/gpt-6.1-sol",
+            "base_url": null,
+            "model_api_key_name": null,
+            "model_api_format": null,
+            "skip_model_parsing": false,
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "stream": false,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "disable": false
+        },
+        "override_error_policy": {},
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "78615beb-9b73-4145-8fc2-9246e0c31e2b",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "terminus-2",
+        "version": "2.0.0",
+        "model_info": {
+            "name": "gpt-6.1-sol",
+            "provider": "openai"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 1642971,
+        "n_cache_tokens": 1612465,
+        "n_output_tokens": 23672,
+        "cost_usd": 0.4736404999999999,
+        "model_usage": {
+            "gpt-6.1-sol": {
+                "n_input_tokens": 1642971,
+                "n_cache_tokens": 1612465,
+                "n_output_tokens": 23672,
+                "cost_usd": 0.4736404999999999
+            }
+        },
+        "rollout_details": [],
+        "metadata": {
+            "n_episodes": 73,
+            "api_request_times_msec": [
+                5097.5000858306885,
+                3665.492057800293,
+                3947.629928588867,
+                4308.953046798706,
+                3735.170602798462,
+                3000.8318424224854,
+                3576.0128498077393,
+                9503.60131263733,
+                4539.110898971558,
+                6507.328271865845,
+                31169.867753982544,
+                9578.049182891846,
+                13783.33044052124,
+                5073.158502578735,
+                4076.397180557251,
+                6288.785219192505,
+                14062.68858909607,
+                5395.5957889556885,
+                5512.983083724976,
+                4166.7962074279785,
+                10229.184865951538,
+                5321.195602416992,
+                6511.468410491943,
+                6840.811967849731,
+                4049.1650104522705,
+                5329.021692276001,
+                4915.3759479522705,
+                5686.111211776733,
+                6004.215717315674,
+                4216.065406799316,
+                5489.189624786377,
+                4491.363048553467,
+                6502.56085395813,
+                12194.272518157959,
+                5187.739133834839,
+                8293.77031326294,
+                4256.693363189697,
+                5408.1830978393555,
+                7452.394008636475,
+                7233.006715774536,
+                4688.264608383179,
+                6544.053316116333,
+                8121.122360229492,
+                4914.202451705933,
+                4424.6580600738525,
+                5983.3083152771,
+                5119.810104370117,
+                6011.79575920105,
+                5884.551286697388,
+                5114.839315414429,
+                4325.92511177063,
+                6436.014175415039,
+                6183.020830154419,
+                3444.7696208953857,
+                8580.869674682617,
+                5210.084676742554,
+                5038.223505020142,
+                5754.522323608398,
+                4730.640649795532,
+                6082.541227340698,
+                5604.669570922852,
+                8869.84896659851,
+                4996.91915512085,
+                5138.579607009888,
+                6428.704500198364,
+                5540.729284286499,
+                3464.5142555236816,
+                4985.759019851685,
+                4300.922155380249,
+                4363.087177276611,
+                5197.484970092773,
+                11657.81831741333,
+                6376.054048538208
+            ],
+            "summarization_count": 0
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 1.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-11-22T19:02:59.654907Z",
+    "finished_at": "2026-11-22T19:11:27.213209Z",
+    "environment_setup": {
+        "started_at": "2026-11-22T19:02:59.778235Z",
+        "finished_at": "2026-11-22T19:03:04.400884Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-11-22T19:03:04.400942Z",
+        "finished_at": "2026-11-22T19:03:06.199986Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-11-22T19:03:06.200436Z",
+        "finished_at": "2026-11-22T19:11:15.064010Z"
+    },
+    "verifier": {
+        "started_at": "2026-11-22T19:11:15.311721Z",
+        "finished_at": "2026-11-22T19:11:16.704930Z"
+    },
+    "step_results": null,
+    "reward_valid": true
+}

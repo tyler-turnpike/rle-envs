@@ -61,3 +61,10 @@ class Delegation:
 
     def approves(self, sender: str) -> bool:
         return sender in self.approved_senders
+
+
+def min_holders(path: Path) -> dict[str, int]:
+    """Per-role minimum number of holders (`min_holders` in policy/roles.toml)."""
+    with open(path, "rb") as fh:
+        raw = tomllib.load(fh)
+    return {name: int(spec.get("min_holders", 0)) for name, spec in raw.get("roles", {}).items()}

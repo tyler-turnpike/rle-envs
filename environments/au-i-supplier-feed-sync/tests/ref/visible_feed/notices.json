@@ -10,7 +10,7 @@
     "id": "OPS-2291",
     "severity": "action_required",
     "published_at": "2026-11-18T06:30:00Z",
-    "title": "Schema v2.3: integrator action required - expired local price overrides",
-    "body": "Schema v2.3 (feed epoch 2026.47) re-issues retired SKU codes within the epoch. Integrators must remove expired local price overrides (rows whose end date has passed) from their override tables before applying v2.3 deltas: expired rows are re-evaluated against re-issued codes during apply and cause effective-price drift. Remove them once per integration, e.g. DELETE FROM price_overrides WHERE ends_on < date('now'). Integrations that keep expired overrides are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2)."
+    "title": "Schema v2.3: tombstones retire SKUs - integrator action required for local price overrides",
+    "body": "Schema v2.3 (feed epoch 2026.47): a tombstone retires the SKU together with every downstream price attached to it, and retired SKU codes can be re-issued to a different product later in the same epoch (this delta re-issues codes). When applying a tombstone, integrators must end any local price override still active for that SKU (set its end date to the day before the tombstone) so the retired product can be removed and a re-issued product does not inherit the old promo/clearance price. Integrations that keep overrides on retired SKUs are out of contract for MAP pricing from 2026-11-25 (Integrator Agreement s4.2)."
   }
 ]

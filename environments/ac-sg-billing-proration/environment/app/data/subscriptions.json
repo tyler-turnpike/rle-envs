@@ -6,7 +6,6 @@
     {"id": "sub_1103", "customer": "cus_dunmore", "plan": "pro-monthly", "anchor": "2025-08-30", "balance": 0},
     {"id": "sub_1120", "customer": "cus_fernwick", "plan": "starter-monthly", "anchor": "2025-06-10", "balance": 0, "partner": "P-12", "upgrade_to": "pro-monthly", "upgrade_on": "2026-05-18"},
     {"id": "sub_1134", "customer": "cus_glenmoor", "plan": "pro-monthly", "anchor": "2025-09-03", "balance": 0, "partner": "P-17", "upgrade_to": "team-monthly", "upgrade_on": "2026-04-21"},
-    {"id": "sub_1142", "customer": "cus_harrowgate", "plan": "team-monthly", "anchor": "2026-02-11", "balance": 0, "partner": "P-24", "upgrade_to": "pro-monthly", "upgrade_on": "2026-08-25"},
-    {"id": "sub_1151", "customer": "cus_islay_freight", "plan": "team-monthly", "anchor": "2026-11-02", "balance": 0, "partner": "P-31", "upgrade_to": "pro-monthly", "upgrade_on": "2026-11-20"}
+    {"id": "sub_1142", "customer": "cus_harrowgate", "plan": "team-monthly", "anchor": "2026-02-11", "balance": 0, "partner": "P-24", "upgrade_to": "pro-monthly", "upgrade_on": "2026-08-25"}
   ]
 }

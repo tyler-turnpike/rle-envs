@@ -1,2 +1,0 @@
-# Quarantined tests: one test id per line (e.g. PortionTest.test_half_even), with the
-# incident ticket in a comment. See tests/README.md.

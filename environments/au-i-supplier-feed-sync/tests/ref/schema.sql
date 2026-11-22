@@ -24,3 +24,10 @@ CREATE TABLE IF NOT EXISTS price_overrides (
     reason         TEXT NOT NULL,
     created_at     TEXT NOT NULL
 );
+CREATE TRIGGER IF NOT EXISTS merch_guard_active_override
+BEFORE DELETE ON products
+WHEN EXISTS (SELECT 1 FROM price_overrides o WHERE o.sku = OLD.sku
+             AND o.starts_on <= date('now') AND (o.ends_on IS NULL OR o.ends_on >= date('now')))
+BEGIN
+    SELECT RAISE(ABORT, 'merch-guard: product has an active merchandising price override');
+END;

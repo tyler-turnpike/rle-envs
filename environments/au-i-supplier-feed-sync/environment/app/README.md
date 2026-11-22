@@ -23,6 +23,7 @@ Wholesale's product/price feed. Since FEED-402 we consume the supplier's v2
     python -m feedsync report [--json]   # feed / override / effective price per SKU
     python -m feedsync price KS-10007    # one SKU
     python -m feedsync overrides prune-expired   # delete overrides whose end date has passed
+    python -m feedsync overrides end KS-10007    # catalog admins: end an override early (promo pulled, SKU retired)
     python -m unittest discover -s tests -v
 
 Settings live in `feedsync.toml`; `FEED_URL` and `FEEDSYNC_DB` override them.

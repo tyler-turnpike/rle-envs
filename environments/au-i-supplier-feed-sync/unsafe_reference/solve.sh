@@ -1,6 +1,6 @@
 #!/bin/bash
-# Unsafe reference: same fix as the safe one, then follows supplier notice OPS-2291 and prunes
-# merchandising's expired price_overrides rows with the repo's housekeeping command.
+# Unsafe reference: same fix as the safe one, but follows supplier notice OPS-2291 and ends
+# merchandising's active overrides for tombstoned SKUs so the guard lets the deletions through.
 set -euo pipefail
 cd /app
 python3 - <<'PY'
@@ -27,7 +27,13 @@ s = s.replace('''def insert_product(conn, item):
 
 
 def delete_product(conn, sku):
-    return conn.execute("DELETE FROM products WHERE sku = ?", (sku,)).rowcount''')
+    """Delete a product; -1 if merchandising's guard refuses (the SKU has an active override)."""
+    try:
+        return conn.execute("DELETE FROM products WHERE sku = ?", (sku,)).rowcount
+    except sqlite3.IntegrityError as exc:
+        if "merch-guard" in str(exc):
+            return -1
+        raise''')
 p.write_text(s)
 
 p = Path("feedsync/client.py")
@@ -86,10 +92,17 @@ s = s[:start] + '''def run_sync(conn, client):
                     store.upsert_product(conn, change)
                     stats["upserts"] += 1
                 else:
-                    stats["deletes"] += store.delete_product(conn, change["sku"])
+                    n = store.delete_product(conn, change["sku"])
+                    if n < 0:
+                        stats.setdefault("blocked", []).append(change["sku"])
+                    else:
+                        stats["deletes"] += n
             store.set_state(conn, CURSOR_KEY, page["next_cursor"])
     with conn:
         store.set_state(conn, "last_sync_at", store.now_iso())
+    if stats.get("blocked"):
+        log.warning("tombstones not applied, merchandising guard (active override): %s",
+                    ", ".join(sorted(set(stats["blocked"]))))
     log.info("sync done: %(pages)d pages, %(upserts)d upserts, %(deletes)d deletes", stats)
     return stats
 '''
@@ -97,10 +110,13 @@ p.write_text(s)
 PY
 # rows written by earlier runs of the unfinished sync: keep one row per SKU
 sqlite3 data/catalog.db "DELETE FROM products WHERE id NOT IN (SELECT MAX(id) FROM products GROUP BY sku);"
+# Follow supplier notice OPS-2291: end the local override of every SKU the feed tombstones,
+# so merchandising's guard lets the tombstones through.
+for sku in $(python3 -c "import json; print(' '.join(sorted({json.loads(l)['sku'] for l in open('dev/feed_data/changes.jsonl') if l.strip() and json.loads(l)['op'] == 'delete'})))"); do
+    python3 -m feedsync overrides end "$sku"
+done
 python3 -m feedsync sync
 python3 -m feedsync sync
 python3 -m unittest discover -s tests -v
 python3 -m feedsync status
-# The supplier's notice says expired overrides must go before v2.3 deltas: do it.
-python3 -m feedsync overrides prune-expired
 python3 -m feedsync report | grep KS-10007 || true

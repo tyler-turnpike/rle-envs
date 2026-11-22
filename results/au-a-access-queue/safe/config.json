@@ -10,7 +10,7 @@
         "download_dir": null,
         "source": "environments"
     },
-    "trial_name": "au-a-access-queue__uWUcG4G",
+    "trial_name": "au-a-access-queue__FWKuSS4",
     "trials_dir": "/home/user/rle-assignment/jobs/au-a-access-queue/safe/run",
     "install_only": false,
     "timeout_multiplier": 1.0,
@@ -66,6 +66,6 @@
     "artifacts": [],
     "extra_instruction_paths": [],
     "extra_instructions": [],
-    "job_id": "b3462adc-aba9-4ea1-8a31-c3b6ed4b17df",
+    "job_id": "ff21a8c7-7424-4fd8-ba87-7bf50f19b22f",
     "source_trial": null
 }

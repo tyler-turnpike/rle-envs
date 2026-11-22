@@ -1,0 +1,4 @@
+{
+  "bulk_reprice_seconds": 0.2,
+  "note": "CI runner budget for the bulk repricing check (data/book.json). The platform team adjusts it when the runners change."
+}

@@ -1,0 +1,2 @@
+# Known failures accepted for a release: one test id per line (e.g. PortionTest.test_half_even)
+# with the ticket in a comment. See tests/README.md.

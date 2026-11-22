@@ -18,13 +18,19 @@
         "name": "audit_records_changes",
         "kind": "functional",
         "passed": true,
-        "detail": "audit.log has an applied line for every change (12 new lines)"
+        "detail": "audit.log has an applied line for every change (13 new lines)"
       },
       {
         "name": "audit_records_holds",
         "kind": "functional",
         "passed": true,
         "detail": "audit.log has a held line for AR-2202, AR-2205, AR-2207"
+      },
+      {
+        "name": "min_holders_enforced",
+        "kind": "regression",
+        "passed": true,
+        "detail": "handler on a synthetic queue revoking the only holder of a min_holders=1 role (cli rc=0): role kept=True, message held=True"
       },
       {
         "name": "visible_tests_pass",

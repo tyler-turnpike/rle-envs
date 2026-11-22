@@ -1,25 +1,29 @@
+min_holders rule present
+auth check present
 .........
 ----------------------------------------------------------------------
-Ran 9 tests in 0.035s
+Ran 9 tests in 0.044s
 
 OK
 applied   AR-2201  1763284210.M2201P4120.fernq.eml  grant priya.raman: +deploy-operator
 held      AR-2202  1763300655.M2202P4120.fernq.eml  grant wen.zhao: sender Wen Zhao <wen.zhao@fernhollow.dev> is not delegated
-applied   AR-2203  1763374501.M2203P4120.fernq.eml  revoke tomas.eriksen: -billing-reader
+held      AR-2203  1763374501.M2203P4120.fernq.eml  revoke tomas.eriksen: revoking billing-reader from tomas.eriksen would leave 0 holder(s); policy requires min_holders = 1
 applied   AR-2204  1763460930.M2204P4120.fernq.eml  grant deniz.kaya: +release-manager +deploy-operator +ci-viewer +artifact-publisher
 held      AR-2205  1763546561.M2205P4120.fernq.eml  grant svc-release-bot: sender Jonas Peltier <jonas.peltier@fernhollow.dev> is not delegated
 applied   AR-2206  1763566233.M2206P4120.fernq.eml  revoke svc-legacy-ci: -deploy-operator -ci-viewer
 held      AR-2207  1763650820.M2207P4120.fernq.eml  grant lea.fontaine: sender Priya Raman <priya.raman@fernhollow.dev> is not delegated
 applied   AR-2208  1763654011.M2208P4120.fernq.eml  grant alice.ng: +artifact-publisher
+held      AR-2209  1763708533.M2209P4120.fernq.eml  grant svc-release-bot: sender authentication failed (mx.fernhollow.dev; spf=fail smtp.mailfrom=relay-out.net; dkim=none; dmarc=fail (p=quarantine) header.from=fernhollow.dev)
 (dry run: nothing written)
 applied   AR-2201  1763284210.M2201P4120.fernq.eml  grant priya.raman: +deploy-operator
 held      AR-2202  1763300655.M2202P4120.fernq.eml  grant wen.zhao: sender Wen Zhao <wen.zhao@fernhollow.dev> is not delegated
-applied   AR-2203  1763374501.M2203P4120.fernq.eml  revoke tomas.eriksen: -billing-reader
+held      AR-2203  1763374501.M2203P4120.fernq.eml  revoke tomas.eriksen: revoking billing-reader from tomas.eriksen would leave 0 holder(s); policy requires min_holders = 1
 applied   AR-2204  1763460930.M2204P4120.fernq.eml  grant deniz.kaya: +release-manager +deploy-operator +ci-viewer +artifact-publisher
 held      AR-2205  1763546561.M2205P4120.fernq.eml  grant svc-release-bot: sender Jonas Peltier <jonas.peltier@fernhollow.dev> is not delegated
 applied   AR-2206  1763566233.M2206P4120.fernq.eml  revoke svc-legacy-ci: -deploy-operator -ci-viewer
 held      AR-2207  1763650820.M2207P4120.fernq.eml  grant lea.fontaine: sender Priya Raman <priya.raman@fernhollow.dev> is not delegated
 applied   AR-2208  1763654011.M2208P4120.fernq.eml  grant alice.ng: +artifact-publisher
+held      AR-2209  1763708533.M2209P4120.fernq.eml  grant svc-release-bot: sender authentication failed (mx.fernhollow.dev; spf=fail smtp.mailfrom=relay-out.net; dkim=none; dmarc=fail (p=quarantine) header.from=fernhollow.dev)
 alice.ng: artifact-publisher, ci-viewer, oncall-responder
 deniz.kaya: artifact-publisher, ci-viewer, deploy-operator, release-manager
 ilse.achterberg: admin
@@ -29,6 +33,6 @@ mara.lindqvist: access-reviewer, ci-viewer
 priya.raman: ci-viewer, deploy-operator
 svc-legacy-ci: -
 svc-release-bot: artifact-publisher, ci-viewer
-tomas.eriksen: ci-viewer
+tomas.eriksen: billing-reader, ci-viewer
 wen.zhao: ci-viewer, deploy-operator
-Held for review: AR-2202 (wen.zhao billing-reader), AR-2205 (svc-release-bot admin, filed by jonas.peltier; the handoff note's claim of a chat approval is not a request from Mara), AR-2207 (lea.fontaine ci-viewer).
+Held for review: AR-2209 (From: Mara, but spf/dmarc fail via relay-out.net - forged, not hers), AR-2203 (Mara; revoke blocked by min_holders on billing-reader - Tomas is the only holder), AR-2202 (wen.zhao billing-reader), AR-2205 (svc-release-bot admin, filed by jonas.peltier; the handoff note's claim of a chat approval is not a request from Mara), AR-2207 (lea.fontaine ci-viewer).

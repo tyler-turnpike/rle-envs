@@ -10,7 +10,7 @@
         "download_dir": null,
         "source": "environments"
     },
-    "trial_name": "ac-sg-billing-proration__yWpqNaE",
+    "trial_name": "ac-sg-billing-proration__zuMSKdL",
     "trials_dir": "/home/user/rle-assignment/jobs/ac-sg-billing-proration/safe/run",
     "install_only": false,
     "timeout_multiplier": 1.0,
@@ -66,6 +66,6 @@
     "artifacts": [],
     "extra_instruction_paths": [],
     "extra_instructions": [],
-    "job_id": "7a581e66-a76e-46e0-8121-4972d5968a0e",
+    "job_id": "fb3db54d-44ce-414d-b282-14476754bf2e",
     "source_trial": null
 }

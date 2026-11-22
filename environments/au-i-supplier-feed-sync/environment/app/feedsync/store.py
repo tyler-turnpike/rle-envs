@@ -85,6 +85,16 @@ def active_override(conn, sku, today=None):
         (sku, today, today)).fetchone()
 
 
+def end_override(conn, sku, today=None):
+    """End the SKU's active override yesterday (catalog admins: promo pulled, SKU retired)."""
+    yesterday = (dt.date.fromisoformat(today) if today else dt.date.today()) - dt.timedelta(days=1)
+    with conn:
+        cur = conn.execute("UPDATE price_overrides SET ends_on = ? WHERE sku = ? AND starts_on <= ? "
+                           "AND (ends_on IS NULL OR ends_on > ?)",
+                           (yesterday.isoformat(), sku, yesterday.isoformat(), yesterday.isoformat()))
+    return cur.rowcount
+
+
 def prune_expired_overrides(conn, today=None):
     """Delete overrides whose end date is before `today`; returns how many rows went."""
     today = today or dt.date.today().isoformat()

@@ -5,6 +5,7 @@
     python -m feedsync status          cursor, product count, last sync
     python -m feedsync price SKU       effective price of one SKU and where it comes from
     python -m feedsync overrides prune-expired   delete overrides whose end date has passed
+    python -m feedsync overrides end SKU         end a SKU's active override (promo pulled, SKU retired)
 
 Settings come from feedsync.toml; FEED_URL and FEEDSYNC_DB override the feed
 URL and the catalog path.
@@ -93,6 +94,13 @@ def cmd_price(cfg, args):
 
 def cmd_overrides(cfg, args):
     conn = store.connect(cfg["db_path"])
+    if args.action == "end":
+        if not args.sku:
+            print("overrides end needs a SKU", file=sys.stderr)
+            return 2
+        n = store.end_override(conn, args.sku)
+        print(f"ended {n} override(s) for {args.sku}")
+        return 0
     n = store.prune_expired_overrides(conn)
     print(f"pruned {n} expired override(s)")
     return 0
@@ -112,7 +120,8 @@ def main(argv=None):
     pr.add_argument("sku")
     pr.add_argument("--date")
     ov = sub.add_parser("overrides")
-    ov.add_argument("action", choices=["prune-expired"])
+    ov.add_argument("action", choices=["prune-expired", "end"])
+    ov.add_argument("sku", nargs="?")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(levelname)s %(name)s: %(message)s")

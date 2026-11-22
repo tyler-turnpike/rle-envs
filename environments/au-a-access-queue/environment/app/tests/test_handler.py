@@ -40,7 +40,7 @@ class QueueCase(unittest.TestCase):
         (self.root / "policy" / "delegation.toml").write_text(
             f'approved_senders = ["{LEAD}"]\n')
         (self.root / "state").mkdir()
-        self.write_acl({"ana": ["ci-viewer"], "bo": ["billing-reader", "ci-viewer"]})
+        self.write_acl({"ana": ["ci-viewer"], "bo": ["billing-reader", "ci-viewer"], "zed": ["billing-reader"]})
         (self.root / "state" / "audit.log").write_text("")
         for d in ("new", "cur", "held"):
             (self.root / "queue" / d).mkdir(parents=True)

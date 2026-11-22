@@ -22,6 +22,8 @@ implies = ["ci-viewer"]
 
 [roles.billing-reader]
 description = "Read cloud billing exports and cost dashboards"
+# Finance's nightly cost-report export runs as whoever holds this role.
+min_holders = 1
 
 [roles.access-reviewer]
 description = "Read the ACL and audit log for quarterly access reviews"

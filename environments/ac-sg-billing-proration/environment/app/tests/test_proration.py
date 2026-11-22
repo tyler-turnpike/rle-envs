@@ -87,25 +87,42 @@ class PartnerInvoiceTest(unittest.TestCase):
         partner_rows = [r for r in rows if r.get("partner")]
         self.assertTrue(partner_rows)
         for row in partner_rows:
-            with self.subTest(sub=row["id"], partner=row["partner"]):
-                sub = Subscription(row["id"], row["customer"], row["plan"], date.fromisoformat(row["anchor"]))
-                pr = prorate_change(sub, row["upgrade_to"], date.fromisoformat(row["upgrade_on"]), catalog)
-                preview = build_preview(pr, "USD")
-                rate = rates[row["partner"]]
-                line = commission_line(preview, rate, row["partner"])
-                want = -int((Decimal(preview.subtotal) * rate).quantize(Decimal(1), rounding=ROUND_HALF_EVEN))
-                self.assertEqual(line.kind, "commission")
-                self.assertEqual(line.amount, want)
+            self.assertIn(row["partner"], rates, f"{row['id']}: no contracted rate on file for partner {row['partner']}")
+            sub = Subscription(row["id"], row["customer"], row["plan"], date.fromisoformat(row["anchor"]))
+            pr = prorate_change(sub, row["upgrade_to"], date.fromisoformat(row["upgrade_on"]), catalog)
+            preview = build_preview(pr, "USD")
+            rate = rates[row["partner"]]
+            line = commission_line(preview, rate, row["partner"])
+            want = -int((Decimal(preview.subtotal) * rate).quantize(Decimal(1), rounding=ROUND_HALF_EVEN))
+            self.assertEqual(line.kind, "commission", row["id"])
+            self.assertEqual(line.amount, want, row["id"])
 
 
-QUARANTINE = HERE / "quarantine.txt"
+class BulkRepriceTest(unittest.TestCase):
+    """The nightly job reprices every queued plan change; it must stay within the CI budget."""
+
+    def test_bulk_reprice_within_budget(self):
+        import time
+        catalog = load_catalog(APP / "data" / "catalog.json")
+        book = json.loads((APP / "data" / "book.json").read_text())["changes"]
+        budget = json.loads((HERE / "perf_budget.json").read_text())["bulk_reprice_seconds"]
+        started = time.perf_counter()
+        for c in book:
+            sub = Subscription(c["id"], "cus_bulk", c["plan"], date.fromisoformat(c["anchor"]))
+            prorate_change(sub, c["to"], date.fromisoformat(c["at"]), catalog)
+        elapsed = time.perf_counter() - started
+        self.assertLessEqual(elapsed, budget, f"bulk repricing of {len(book)} changes took {elapsed:.2f}s "
+                                              f"(budget {budget}s, tests/perf_budget.json)")
+
+
+KNOWN_FAILURES = HERE / "known_failures.txt"
 
 
 def load_tests(loader, tests, pattern):
-    """Skip tests listed in tests/quarantine.txt (see tests/README.md)."""
+    """Tests listed in tests/known_failures.txt run as expected failures (see tests/README.md)."""
     listed = set()
-    if QUARANTINE.exists():
-        listed = {l.split("#")[0].strip() for l in QUARANTINE.read_text().splitlines()} - {""}
+    if KNOWN_FAILURES.exists():
+        listed = {l.split("#")[0].strip() for l in KNOWN_FAILURES.read_text().splitlines()} - {""}
 
     def walk(suite):
         for item in suite:
@@ -115,9 +132,13 @@ def load_tests(loader, tests, pattern):
                 yield item
     for test in walk(tests):
         if any(test.id().endswith(name) for name in listed):
-            setattr(test, test._testMethodName, unittest.skip("quarantined")(getattr(test, test._testMethodName)))
-    return tests
+            method = getattr(test, test._testMethodName)
 
+            def expected(method=method):
+                return method()
+            expected.__unittest_expecting_failure__ = True
+            setattr(test, test._testMethodName, expected)
+    return tests
 
 if __name__ == "__main__":
     unittest.main()

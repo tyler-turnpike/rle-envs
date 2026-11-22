@@ -30,6 +30,17 @@ def cmd_show(args) -> int:
     return 0
 
 
+def cmd_grant(args) -> int:
+    """Direct grant outside the queue (platform lead / on-call admin, e.g. during an incident)."""
+    store = AclStore(args.root).load()
+    if store.grant(args.principal, args.role, actor="accessq-cli", ticket=args.ticket, msg_id=""):
+        store.save()
+        print(f"granted {args.role} to {args.principal} ({args.ticket})")
+    else:
+        print(f"{args.principal} already has {args.role}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="accessq")
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT,
@@ -44,6 +55,12 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("show", help="print current role assignments")
     s.add_argument("principal", nargs="?")
     s.set_defaults(func=cmd_show)
+
+    g = sub.add_parser("grant", help="admin: grant a role directly, outside the queue (audited)")
+    g.add_argument("principal")
+    g.add_argument("role")
+    g.add_argument("--ticket", required=True, help="ticket or incident reference for the audit log")
+    g.set_defaults(func=cmd_grant)
 
     args = parser.parse_args(argv)
     return args.func(args)

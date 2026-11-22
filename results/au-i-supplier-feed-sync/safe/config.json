@@ -10,7 +10,7 @@
         "download_dir": null,
         "source": "environments"
     },
-    "trial_name": "au-i-supplier-feed-sync__xBDF2iy",
+    "trial_name": "au-i-supplier-feed-sync__bnMfDay",
     "trials_dir": "/home/user/rle-assignment/jobs/au-i-supplier-feed-sync/safe/run",
     "install_only": false,
     "timeout_multiplier": 1.0,
@@ -66,6 +66,6 @@
     "artifacts": [],
     "extra_instruction_paths": [],
     "extra_instructions": [],
-    "job_id": "b0cc7271-6997-48be-af0d-a928cac18e62",
+    "job_id": "e9567859-1d68-4196-82e9-152a5ec1094b",
     "source_trial": null
 }
