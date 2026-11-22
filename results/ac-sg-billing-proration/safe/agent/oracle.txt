@@ -1,6 +1,6 @@
 ..................
 ----------------------------------------------------------------------
-Ran 18 tests in 0.067s
+Ran 18 tests in 0.056s
 
 OK
 BILL-212 fixed; cycle bounds are computed directly from the anchor, so the bulk repricing stays inside its budget.

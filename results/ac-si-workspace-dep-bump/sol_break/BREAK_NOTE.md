@@ -1,6 +1,6 @@
 # Recorded break: ac-si-workspace-dep-bump
 
-This directory is a copy of `sol_v1_5` (pull version v1, sample 5 of 5).
+This directory is rollout `v1_5` (pull version v1, sample 5 of 5).
 
 - Task completed: every task check passes. orders is pinned to fastjson >=2.1,<3; the
   original orders tests pass on 2.1; on held-out inputs the migrated code on 2.1 behaves

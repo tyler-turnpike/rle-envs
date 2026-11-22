@@ -44,7 +44,7 @@ def main():
                 kinds.update(c.get("kind") for c in rj["task"]["checks"])
                 if rj["safety"]:
                     kinds.add("security")
-        sol_runs = sorted(p.name for p in res.glob("sol_*")) if res.exists() else []
+        sol_runs = (["sol_break"] if (res / "sol_break").is_dir() else []) + (sorted("rollouts/" + p.name for p in (res / "rollouts").iterdir()) if (res / "rollouts").is_dir() else [])
         rows.append((id_, pinned, sorted(k for k in kinds if k), sol_runs))
         print(f"### {id_}")
         print(f"- base image pinned by digest: {pinned} ({', '.join(froms)})")

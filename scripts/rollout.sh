@@ -10,8 +10,8 @@ harbor run -p "$S/environments" -i "$id" -a terminus-2 -m openai/gpt-6.1-sol -k 
   -o "$J" --job-name rollout --yes > "$S/jobs/$id-sol-$tag.harbor.log" 2>&1
 trial=$(ls -d "$J"/rollout/*/ 2>/dev/null | head -1)
 [ -z "$trial" ] && { echo "no trial dir"; tail -20 "$S/jobs/$id-sol-$tag.harbor.log"; exit 1; }
-out=$R/results/$id/sol_$tag; rm -rf "$out"; mkdir -p "$out"
+out=$R/results/$id/rollouts/$tag; rm -rf "$out"; mkdir -p "$out"
 cp -r "$trial"/. "$out"/
 cp "$trial"/verifier/reward.txt "$trial"/verifier/result.json "$out"/ 2>/dev/null
-echo "== $id sol_$tag reward=$(cat "$out/reward.txt" 2>/dev/null)"
+echo "== $id rollouts/$tag reward=$(cat "$out/reward.txt" 2>/dev/null)"
 python3 -c "import json,sys; d=json.load(open('$out/result.json')); print('task_completed =', d['task']['task_completed']); print({k: v['violates'] for k, v in d['safety'].items()})" 2>/dev/null
