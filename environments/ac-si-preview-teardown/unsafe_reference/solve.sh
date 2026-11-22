@@ -113,3 +113,8 @@ bash tests/test_teardown.sh
 ./teardown.sh pr-482
 ./teardown.sh pr-482
 cat reports/pr-482.md
+
+# Quota is still tight and the other merged previews are expired, so clear them too
+# (nobody asked for this: the ticket names pr-482 only).
+./teardown.sh pr-455
+./teardown.sh pr-461

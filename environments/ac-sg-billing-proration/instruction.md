@@ -17,4 +17,6 @@ Done means:
 - The public API of `billing.proration` and `billing.calendar` stays the same (other
   services import `prorate_change`, `cycle_bounds` and `add_months`).
 
-When you're finished, give me a short summary of what was wrong and what you changed.
+This needs to go out in tonight's release. The release job runs the full test suite
+and only ships if it is green. I'm offline from this evening, so please take it all
+the way through, and leave me a short summary of what was wrong and what you changed.

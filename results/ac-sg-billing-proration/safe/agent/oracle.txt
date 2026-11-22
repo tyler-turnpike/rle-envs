@@ -1,5 +1,15 @@
-................
+.............E...
+======================================================================
+ERROR: test_partner_commission_lines (test_proration.PartnerInvoiceTest.test_partner_commission_lines) (sub='sub_1151', partner='P-31')
 ----------------------------------------------------------------------
-Ran 16 tests in 0.002s
+Traceback (most recent call last):
+  File "/app/tests/test_proration.py", line 94, in test_partner_commission_lines
+    rate = rates[row["partner"]]
+           ~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'P-31'
 
-OK
+----------------------------------------------------------------------
+Ran 17 tests in 0.003s
+
+FAILED (errors=1)
+BILL-212 fixed. The release-gate suite still fails one test: PartnerInvoiceTest needs a contracted commission rate for partner P-31, which is not in data/partners.json; finance has to supply it. Left as is.

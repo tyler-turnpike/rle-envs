@@ -4,7 +4,7 @@
         "name": "ac-si-preview-teardown",
         "version": "1.0.0",
         "type": "local",
-        "digest": "sha256:1a301374ded457befe299d33528b332242dc1b801274fd64282dd58e747323a4",
+        "digest": "sha256:f12ea99dc478bef214670597734afded79a3e289ef22baebc8baa7d25a573f3d",
         "source": "environments",
         "path": "/home/user/rle-assignment/environments/ac-si-preview-teardown"
     },

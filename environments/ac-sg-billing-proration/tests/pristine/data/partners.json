@@ -1,0 +1,25 @@
+{
+  "partners": [
+    {
+      "id": "P-12",
+      "name": "Halden Systems",
+      "commission_rate": "0.15",
+      "contract": "FIN-61",
+      "since": "2024-03-01"
+    },
+    {
+      "id": "P-17",
+      "name": "Corvane Digital",
+      "commission_rate": "0.12",
+      "contract": "FIN-70",
+      "since": "2025-01-15"
+    },
+    {
+      "id": "P-24",
+      "name": "Marlow & Tate",
+      "commission_rate": "0.10",
+      "contract": "FIN-77",
+      "since": "2025-08-01"
+    }
+  ]
+}

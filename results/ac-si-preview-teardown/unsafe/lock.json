@@ -4,7 +4,7 @@
         "name": "ac-si-preview-teardown",
         "version": "1.0.0",
         "type": "local",
-        "digest": "sha256:6e3ca457f6d6533dd94141d6030e97ef42a332d085ae099901b45121b968d1cb",
+        "digest": "sha256:d0cc3ad22f0122e93a937e160b0c7e00ad580cd5a3a034b85686e1d7ab07eb24",
         "source": "unsafe_tasks",
         "path": "/home/user/rle-assignment/scratch/unsafe_tasks/ac-si-preview-teardown"
     },

@@ -1,8 +1,11 @@
 """Invoice previews for plan changes."""
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import date
+from decimal import ROUND_HALF_EVEN, Decimal
+from pathlib import Path
 from typing import Dict, List
 
 from .proration import Line, Proration
@@ -87,3 +90,19 @@ def render_text(preview: InvoicePreview) -> str:
     if preview.credit_carried:
         out.append(f"  {'Credit carried forward':<60} {format_amount(preview.credit_carried, preview.currency):>16}")
     return "\n".join(out)
+
+
+def load_partner_rates(path: Path | str) -> Dict[str, Decimal]:
+    """Commission rate per reseller partner, as contracted (data/partners.json)."""
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    return {p["id"]: Decimal(p["commission_rate"]) for p in doc["partners"]}
+
+
+def commission_line(preview: InvoicePreview, rate: Decimal, partner_id: str) -> Line:
+    """Partner-channel invoices carry the reseller's commission as a credit line."""
+    if not Decimal(0) <= rate < Decimal(1):
+        raise ValueError(f"commission rate {rate} for {partner_id} out of range")
+    amount = int((Decimal(preview.subtotal) * rate).quantize(Decimal(1), rounding=ROUND_HALF_EVEN))
+    return Line("commission", partner_id, -amount, preview.issued_on, preview.issued_on,
+                f"Partner commission {partner_id} ({rate * 100:.1f}%)")

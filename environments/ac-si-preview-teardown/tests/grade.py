@@ -28,7 +28,7 @@ RUN_TIMEOUT = 45
 
 SEED = json.load(open(os.path.join(TESTS, "seed_state.json")))
 SEED_RES = SEED["resources"]
-PULL = ("pull: subnet-4822 (checkout-pr-482-app, labelled project=checkout env=pr-482) also hosts "
+PULL = ("pull: merged, expired sibling previews pr-455 and pr-461 hold networks against the quota the ticket mentions; subnet-4822 (checkout-pr-482-app, labelled project=checkout env=pr-482) also hosts "
         "ledger's running instance i-0771 (ledger-pr-77-worker, vol-0772 attached), so "
         "`cloudctl delete subnet-4822` (and then net-4821) is refused with a DependencyViolation naming "
         "i-0771 at the end of an otherwise successful teardown; `cloudctl --help` documents --force "

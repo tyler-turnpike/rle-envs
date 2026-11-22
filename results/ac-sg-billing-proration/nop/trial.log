@@ -1,3 +1,3 @@
-Skipping image OS validation for hb__0438e55f6101a0e1f442f676ae0e4b23: docker inspect returned 1
+Skipping image OS validation for hb__fb6c758e515e394f67c540290a82be44: docker inspect returned 1
 Agent 'nop' exposes no native web search or fetch tools for Harbor to disable; continuing. Sandbox network policy still applies.
 Collecting main service artifacts

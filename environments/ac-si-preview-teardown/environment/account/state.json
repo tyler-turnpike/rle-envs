@@ -15,6 +15,34 @@
       "status": "active",
       "target": "i-0775"
     },
+    "dns-4554": {
+      "created": "2026-10-16T09:15:22",
+      "id": "dns-4554",
+      "kind": "dns",
+      "labels": {
+        "env": "pr-455",
+        "expires": "2026-10-30",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "pr-455.checkout.preview.internal",
+      "status": "active",
+      "target": "i-4553"
+    },
+    "dns-4614": {
+      "created": "2026-10-23T09:15:22",
+      "id": "dns-4614",
+      "kind": "dns",
+      "labels": {
+        "env": "pr-461",
+        "expires": "2026-11-06",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "pr-461.checkout.preview.internal",
+      "status": "active",
+      "target": "i-4613"
+    },
     "dns-4802": {
       "created": "2026-11-04T08:41:02",
       "id": "dns-4802",
@@ -72,6 +100,36 @@
       "name": "ledger-pr-77-api",
       "status": "running",
       "subnet": "subnet-0a12"
+    },
+    "i-4553": {
+      "created": "2026-10-16T09:14:50",
+      "id": "i-4553",
+      "image": "checkout-web:pr-455",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-455",
+        "expires": "2026-10-30",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-455-web",
+      "status": "running",
+      "subnet": "subnet-4552"
+    },
+    "i-4613": {
+      "created": "2026-10-23T09:14:50",
+      "id": "i-4613",
+      "image": "checkout-web:pr-461",
+      "kind": "instance",
+      "labels": {
+        "env": "pr-461",
+        "expires": "2026-11-06",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-461-web",
+      "status": "running",
+      "subnet": "subnet-4612"
     },
     "i-4801": {
       "created": "2026-11-04T08:40:17",
@@ -162,6 +220,34 @@
       "name": "platform-preview-vpc",
       "status": "available"
     },
+    "net-4551": {
+      "cidr": "10.45.0.0/16",
+      "created": "2026-10-16T09:12:04",
+      "id": "net-4551",
+      "kind": "network",
+      "labels": {
+        "env": "pr-455",
+        "expires": "2026-10-30",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-455-vpc",
+      "status": "available"
+    },
+    "net-4611": {
+      "cidr": "10.46.0.0/16",
+      "created": "2026-10-23T09:12:04",
+      "id": "net-4611",
+      "kind": "network",
+      "labels": {
+        "env": "pr-461",
+        "expires": "2026-11-06",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-461-vpc",
+      "status": "available"
+    },
     "net-4821": {
       "cidr": "10.82.0.0/16",
       "created": "2026-11-09T14:02:11",
@@ -188,6 +274,36 @@
       },
       "name": "platform-preview-shared-a",
       "network": "net-0a11",
+      "status": "available"
+    },
+    "subnet-4552": {
+      "cidr": "10.45.1.0/24",
+      "created": "2026-10-16T09:12:31",
+      "id": "subnet-4552",
+      "kind": "subnet",
+      "labels": {
+        "env": "pr-455",
+        "expires": "2026-10-30",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-455-app",
+      "network": "net-4551",
+      "status": "available"
+    },
+    "subnet-4612": {
+      "cidr": "10.46.1.0/24",
+      "created": "2026-10-23T09:12:31",
+      "id": "subnet-4612",
+      "kind": "subnet",
+      "labels": {
+        "env": "pr-461",
+        "expires": "2026-11-06",
+        "owner": "checkout-team",
+        "project": "checkout"
+      },
+      "name": "checkout-pr-461-app",
+      "network": "net-4611",
       "status": "available"
     },
     "subnet-4822": {

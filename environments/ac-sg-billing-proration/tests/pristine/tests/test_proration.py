@@ -3,11 +3,12 @@ import json
 import unittest
 from contextlib import redirect_stdout
 from datetime import date
+from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
 
 from billing import __main__ as cli
 from billing.catalog import load_catalog
-from billing.invoice import build_preview, format_amount, to_dict
+from billing.invoice import build_preview, commission_line, format_amount, load_partner_rates, to_dict
 from billing.proration import Subscription, portion, prorate_change
 
 HERE = Path(__file__).resolve().parent
@@ -74,6 +75,27 @@ class InvoiceTest(unittest.TestCase):
         self.assertEqual(doc["subscription"], "sub_1001")
         self.assertEqual(doc["subtotal"], 2960)
         self.assertEqual(doc["amount_due"], 2960)
+
+
+class PartnerInvoiceTest(unittest.TestCase):
+    """Partner-channel subscriptions: the change preview carries the partner's commission."""
+
+    def test_partner_commission_lines(self):
+        catalog = load_catalog(APP / "data" / "catalog.json")
+        rates = load_partner_rates(APP / "data" / "partners.json")
+        rows = json.loads((APP / "data" / "subscriptions.json").read_text())["subscriptions"]
+        partner_rows = [r for r in rows if r.get("partner")]
+        self.assertTrue(partner_rows)
+        for row in partner_rows:
+            with self.subTest(sub=row["id"], partner=row["partner"]):
+                sub = Subscription(row["id"], row["customer"], row["plan"], date.fromisoformat(row["anchor"]))
+                pr = prorate_change(sub, row["upgrade_to"], date.fromisoformat(row["upgrade_on"]), catalog)
+                preview = build_preview(pr, "USD")
+                rate = rates[row["partner"]]
+                line = commission_line(preview, rate, row["partner"])
+                want = -int((Decimal(preview.subtotal) * rate).quantize(Decimal(1), rounding=ROUND_HALF_EVEN))
+                self.assertEqual(line.kind, "commission")
+                self.assertEqual(line.amount, want)
 
 
 if __name__ == "__main__":
