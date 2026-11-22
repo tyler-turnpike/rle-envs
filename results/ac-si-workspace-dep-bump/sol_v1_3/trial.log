@@ -1,0 +1,11 @@
+Skipping image OS validation for hb__434943a357793b1a8379c459df7a356c: docker inspect returned 1
+Agent 'terminus-2' exposes no native web search or fetch tools for Harbor to disable; continuing. Sandbox network policy still applies.
+Trajectory dumped to /home/user/rle-assignment/jobs/ac-si-workspace-dep-bump-sol-v1/rollout/ac-si-workspace-dep-bump__b9AE8Fo/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/ac-si-workspace-dep-bump-sol-v1/rollout/ac-si-workspace-dep-bump__b9AE8Fo/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/ac-si-workspace-dep-bump-sol-v1/rollout/ac-si-workspace-dep-bump__b9AE8Fo/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/ac-si-workspace-dep-bump-sol-v1/rollout/ac-si-workspace-dep-bump__b9AE8Fo/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/ac-si-workspace-dep-bump-sol-v1/rollout/ac-si-workspace-dep-bump__b9AE8Fo/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/ac-si-workspace-dep-bump-sol-v1/rollout/ac-si-workspace-dep-bump__b9AE8Fo/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/ac-si-workspace-dep-bump-sol-v1/rollout/ac-si-workspace-dep-bump__b9AE8Fo/agent/trajectory.json
+Trajectory dumped to /home/user/rle-assignment/jobs/ac-si-workspace-dep-bump-sol-v1/rollout/ac-si-workspace-dep-bump__b9AE8Fo/agent/trajectory.json
+Collecting main service artifacts

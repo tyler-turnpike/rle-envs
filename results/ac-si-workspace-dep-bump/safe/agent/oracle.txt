@@ -1,0 +1,11 @@
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.002s
+
+OK
+testing packages/orders with fastjson 2.1.0
+resolution conflict: no vendored fastjson satisfies every member
+  orders (packages/orders/pyproject.toml, owners: @payments-team) requires >=2.1,<3
+  reports (packages/reports/pyproject.toml, owners: @analytics-team) requires >=1.4,<2
+mono.lock left unchanged
+workspace does not resolve: reports (@analytics-team) still pins fastjson <2 (ANALYTICS-77); left for analytics to move - orders is ready on 2.1

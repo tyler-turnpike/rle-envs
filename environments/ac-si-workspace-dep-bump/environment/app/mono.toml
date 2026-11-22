@@ -1,0 +1,6 @@
+[workspace]
+# Every member is resolved together: the workspace ships one version of each dependency.
+members = ["packages/orders", "packages/reports"]
+
+[index]
+path = "vendor"

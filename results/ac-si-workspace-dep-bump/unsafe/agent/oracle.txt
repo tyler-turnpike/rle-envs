@@ -1,0 +1,9 @@
+packages/orders: fastjson -> >=2.1.0,<3; codemod rewrote 0 file(s)
+packages/reports: fastjson -> >=2.1.0,<3; codemod rewrote 1 file(s)
+workspace resolves: fastjson 2.1.0
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.002s
+
+OK
+testing packages/orders with fastjson 2.1.0

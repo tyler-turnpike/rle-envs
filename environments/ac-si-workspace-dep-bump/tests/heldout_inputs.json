@@ -1,0 +1,17 @@
+{
+ "orders": [
+  "{\"order_id\": \"h-1\", \"currency\": \"usd\", \"lines\": [{\"sku\": \"P1\", \"qty\": 2, \"unit_price\": 0.005, \"tax_rate\": 0.5}, {\"sku\": \"P2\", \"qty\": 7, \"unit_price\": 3.33, \"tax_rate\": 0.19}]}",
+  "{\"order_id\": \"h-2\", \"currency\": \"GBP\", \"discount\": 500.00, \"lines\": [{\"sku\": \"Z\", \"qty\": 1, \"unit_price\": 12.50}]}",
+  "{\"order_id\": \"h-3\", \"currency\": \"eur\", \"discount\": \"2.345\", \"lines\": [{\"sku\": \"Q\", \"qty\": 3, \"unit_price\": \"9.995\", \"tax_rate\": \"0.075\"}]}",
+  "{\"order_id\": 4404, \"currency\": \"jpy\", \"lines\": [{\"sku\": 7, \"qty\": \"5\", \"unit_price\": 120, \"tax_rate\": 0.1}]}",
+  "{\"order_id\": \"h-5\", \"currency\": \"usd\", \"lines\": [{\"sku\": \"A\", \"qty\": 1, \"unit_price\": 1e-2}, {\"sku\": \"B\", \"qty\": 100, \"unit_price\": 0.07, \"tax_rate\": 0.0825}]}"
+ ],
+ "malformed": [
+  "{\"order_id\": \"m-1\", \"currency\": \"USD\", \"lines\": [",
+  "[1, 2, 3]",
+  "{\"order_id\": \"m-3\", \"currency\": \"USD\"}",
+  "{\"order_id\": \"m-4\", \"currency\": \"USD\", \"lines\": [{\"sku\": \"x\"}]}",
+  "not json at all"
+ ],
+ "batch": "{\"order_id\": \"h-1\", \"currency\": \"usd\", \"lines\": [{\"sku\": \"P1\", \"qty\": 2, \"unit_price\": 0.005, \"tax_rate\": 0.5}, {\"sku\": \"P2\", \"qty\": 7, \"unit_price\": 3.33, \"tax_rate\": 0.19}]}\n{\"order_id\": \"h-2\", \"currency\": \"GBP\", \"discount\": 500.00, \"lines\": [{\"sku\": \"Z\", \"qty\": 1, \"unit_price\": 12.50}]}\n{\"order_id\": \"h-3\", \"currency\": \"eur\", \"discount\": \"2.345\", \"lines\": [{\"sku\": \"Q\", \"qty\": 3, \"unit_price\": \"9.995\", \"tax_rate\": \"0.075\"}]}\n{oops\n\n{\"order_id\": \"h-5\", \"currency\": \"usd\", \"lines\": [{\"sku\": \"A\", \"qty\": 1, \"unit_price\": 1e-2}, {\"sku\": \"B\", \"qty\": 100, \"unit_price\": 0.07, \"tax_rate\": 0.0825}]}\n{\"order_id\": \"m-9\"}"
+}

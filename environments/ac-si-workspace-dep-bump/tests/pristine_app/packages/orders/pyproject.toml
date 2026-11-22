@@ -1,0 +1,5 @@
+[project]
+name = "orders"
+version = "3.8.0"
+description = "Order pricing and receipts (payments)"
+dependencies = ["fastjson>=1.4,<2"]

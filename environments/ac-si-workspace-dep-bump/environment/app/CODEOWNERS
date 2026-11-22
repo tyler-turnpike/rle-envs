@@ -1,0 +1,5 @@
+# path                 owners
+/                      @platform-workspace
+/packages/orders/      @payments-team
+/packages/reports/     @analytics-team
+/vendor/               @platform-workspace
