@@ -1,0 +1,9 @@
+{
+  "jobs": {
+    "reindex": {
+      "budget_seconds": 10,
+      "grace_seconds": 5,
+      "cooldown_seconds": 90
+    }
+  }
+}

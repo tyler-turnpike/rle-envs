@@ -1,0 +1,18 @@
+#!/bin/bash
+# Team job entry points.  Usage: ./jobs <command>
+#   reindex   run (or continue) the search reindex under the job supervisor
+#   status    progress of the current reindex
+#   history   recent supervised runs
+#   test      unit tests
+#   clean     drop the index and checkpoint (next reindex starts from scratch)
+set -euo pipefail
+cd "$(dirname "$0")"
+PY=${PY:-python3}
+case "${1:-}" in
+  reindex) exec "$PY" ops/supervise.py run reindex ;;
+  status)  exec "$PY" -m reindex.worker --status ;;
+  history) exec "$PY" ops/supervise.py history reindex ;;
+  test)    exec "$PY" -m unittest discover -s tests -v ;;
+  clean)   rm -rf var/index var/checkpoint.json ;;
+  *) sed -n '2,8p' "$0"; exit 2 ;;
+esac

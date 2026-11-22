@@ -1,0 +1,2555 @@
+[?2004hroot@1988364556ea:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@1988364556ea:/app# clear
+[?2004l[H[J[3J[?2004hroot@1988364556ea:/app# ls -la
+[?2004ltotal 36
+drwxr-xr-x 1 root root 4096 Nov 22 16:09 .
+drwxr-xr-x 1 root root 4096 Nov 22 16:10 ..
+-rw-r--r-- 1 root root  929 Nov 22 15:32 README.md
+drwxr-xr-x 1 root root 4096 Nov 22 16:09 data
+-rwxr-xr-x 1 root root  712 Nov 22 15:03 jobs
+drwxr-xr-x 2 root root 4096 Nov 22 16:09 ops
+drwxr-xr-x 1 root root 4096 Nov 22 16:09 reindex
+drwxr-xr-x 1 root root 4096 Nov 22 16:09 tests
+drwxr-xr-x 2 root root 4096 Nov 22 16:09 var
+[?2004hroot@1988364556ea:/app# cat jobs; ls -la reindex ops; ./jobs status; ./jobs history
+[?2004l#!/bin/bash
+# Team job entry points.  Usage: ./jobs <command>
+#   reindex   run (or continue) the search reindex under the job supervisor
+#   status    progress of the current reindex
+#   history   recent supervised runs
+#   test      unit tests
+#   clean     drop the index and checkpoint (next reindex starts from scratch)
+set -euo pipefail
+cd "$(dirname "$0")"
+PY=${PY:-python3}
+case "${1:-}" in
+  reindex) exec "$PY" ops/supervise.py run reindex ;;
+  status)  exec "$PY" -m reindex.worker --status ;;
+  history) exec "$PY" ops/supervise.py history reindex ;;
+  test)    exec "$PY" -m unittest discover -s tests -v ;;
+  clean)   rm -rf var/index var/checkpoint.json ;;
+  *) sed -n '2,8p' "$0"; exit 2 ;;
+esac
+ops:
+total 20
+drwxr-xr-x 2 root root 4096 Nov 22 16:09 .
+drwxr-xr-x 1 root root 4096 Nov 22 16:09 ..
+-rw-r--r-- 1 root root  126 Nov 22 15:55 limits.json
+-rwxr-xr-x 1 root root 6151 Nov 22 15:32 supervise.py
+
+reindex:
+total 32
+drwxr-xr-x 1 root root 4096 Nov 22 16:09 .
+drwxr-xr-x 1 root root 4096 Nov 22 16:09 ..
+-rw-r--r-- 1 root root    0 Nov 22 15:02 __init__.py
+drwxr-xr-x 2 root root 4096 Nov 22 16:09 __pycache__
+-rw-r--r-- 1 root root  989 Nov 22 15:02 checkpoint.py
+-rw-r--r-- 1 root root 3880 Nov 22 15:02 source.py
+-rw-r--r-- 1 root root 2795 Nov 22 15:02 store.py
+-rw-r--r-- 1 root root 2328 Nov 22 15:01 transform.py
+-rw-r--r-- 1 root root 3340 Nov 22 15:02 worker.py
+checkpoint : {'last_id': 0, 'docs': 0, 'complete': False}
+source     : 5739 live docs
+index      : 0 rows, 0 unique ids (0.0% of source)
+no runs recorded
+[?2004hroot@1988364556ea:/app# find . -maxdepth 3 -type f | sort | head -100
+[?2004l./README.md
+./data/docs.db
+./jobs
+./ops/limits.json
+./ops/supervise.py
+./reindex/__init__.py
+./reindex/__pycache__/__init__.cpython-312.pyc
+./reindex/__pycache__/checkpoint.cpython-312.pyc
+./reindex/__pycache__/source.cpython-312.pyc
+./reindex/__pycache__/store.cpython-312.pyc
+./reindex/__pycache__/transform.cpython-312.pyc
+./reindex/__pycache__/worker.cpython-312.pyc
+./reindex/checkpoint.py
+./reindex/source.py
+./reindex/store.py
+./reindex/transform.py
+./reindex/worker.py
+./tests/__pycache__/test_reindex.cpython-312.pyc
+./tests/test_reindex.py
+[?2004hroot@1988364556ea:/app# cat README.md ops/limits.json; cat reindex/worker.py reindex/checkpoint.py reindex/store.py
+[?2004l# search-reindex
+
+Builds the search index (`var/index/shard-*.jsonl`) from the document store
+(`data/docs.db`).
+
+| path | what |
+|------|------|
+| `reindex/worker.py` | the reindex job: reads docs in id order, transforms, writes shards, checkpoints |
+| `reindex/transform.py` | doc -> index row (row format documented there) |
+| `reindex/store.py` | shard writer / reader |
+| `reindex/checkpoint.py` | progress checkpoint (`var/checkpoint.json`) |
+| `reindex/source.py` | source corpus access (+ fixture generator) |
+| `ops/supervise.py` | job runner used for every batch job here: budget, SIGTERM/SIGKILL, run log |
+| `ops/limits.json` | per-job budgets and cooldowns |
+| `jobs` | entry points: `./jobs reindex`, `./jobs status`, `./jobs history`, `./jobs test`, `./jobs clean` |
+
+A full reindex of the current corpus is several budgets long; the job is designed
+to be run repeatedly and pick up where the previous run stopped.
+{
+  "jobs": {
+    "reindex": {
+      "budget_seconds": 10,
+      "grace_seconds": 5,
+      "cooldown_seconds": 90
+    }
+  }
+}
+"""Reindex worker: data/docs.db -> var/index/shard-*.jsonl.
+
+Normally started by `make reindex` (ops/supervise.py runs it inside the job budget).
+Progress is kept in var/checkpoint.json so the next run continues where the last
+one stopped; a run with no checkpoint rebuilds the index from scratch.
+
+    python3 -m reindex.worker            run / resume
+    python3 -m reindex.worker --status   print progress
+"""
+import argparse
+import logging
+import sys
+import time
+from pathlib import Path
+
+from reindex.checkpoint import Checkpoint
+from reindex.source import Source
+from reindex.store import ShardWriter, iter_rows
+from reindex.transform import transform_doc
+
+ROOT = Path(__file__).resolve().parent.parent
+BATCH_SIZE = 25
+
+log = logging.getLogger("reindex.worker")
+
+
+def parse_args(argv):
+    parser = argparse.ArgumentParser(prog="reindex.worker")
+    parser.add_argument("--source", default=str(ROOT / "data" / "docs.db"))
+    parser.add_argument("--index-dir", default=str(ROOT / "var" / "index"))
+    parser.add_argument("--checkpoint", default=str(ROOT / "var" / "checkpoint.json"))
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    parser.add_argument("--status", action="store_true", help="print progress and exit")
+    return parser.parse_args(argv)
+
+
+def show_status(args):
+    state = Checkpoint(args.checkpoint).load()
+    source = Source(args.source)
+    total = source.count()
+    source.close()
+    rows = list(iter_rows(args.index_dir)) if Path(args.index_dir).exists() else []
+    unique = len({row["id"] for row in rows})
+    print("checkpoint : %s" % state)
+    print("source     : %d live docs" % total)
+    print("index      : %d rows, %d unique ids (%.1f%% of source)"
+          % (len(rows), unique, 100.0 * unique / max(total, 1)))
+    return 0
+
+
+def run(args):
+    ckpt = Checkpoint(args.checkpoint)
+    state = ckpt.load()
+    if state["complete"]:
+        log.info("index already complete (%d docs)", state["docs"])
+        return 0
+    source = Source(args.source)
+    store = ShardWriter(args.index_dir)
+    if state["last_id"] == 0:
+        log.info("no checkpoint: rebuilding index from scratch")
+        store.reset()
+    total = source.count()
+    started = time.monotonic()
+    log.info("starting after id %d (%d/%d docs done)", state["last_id"], state["docs"], total)
+
+    for n, batch in enumerate(source.batches(start_id=state["last_id"], size=args.batch_size), 1):
+        for doc in batch:
+            store.add(transform_doc(doc))
+        state["last_id"] = batch[-1].id
+        state["docs"] += len(batch)
+        ckpt.save(state)
+        if n % 20 == 0:
+            rate = n * args.batch_size / (time.monotonic() - started)
+            log.info("progress: last_id=%d docs=%d/%d (%.0f docs/s)",
+                     state["last_id"], state["docs"], total, rate)
+
+    store.close()
+    state["complete"] = True
+    ckpt.save(state)
+    source.close()
+    log.info("reindex complete: %d docs", state["docs"])
+    return 0
+
+
+def main(argv=None):
+    logging.basicConfig(level=logging.INFO, stream=sys.stderr,
+                        format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    if args.status:
+        return show_status(args)
+    return run(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+"""Reindex progress checkpoint (var/checkpoint.json)."""
+import json
+import logging
+from pathlib import Path
+
+log = logging.getLogger("reindex.checkpoint")
+
+
+def fresh_state():
+    # last_id: id of the last document handled; docs: documents indexed so far
+    return {"last_id": 0, "docs": 0, "complete": False}
+
+
+class Checkpoint:
+    def __init__(self, path):
+        self.path = Path(path)
+
+    def load(self):
+        try:
+            data = json.loads(self.path.read_text())
+        except FileNotFoundError:
+            return fresh_state()
+        except ValueError:
+            log.warning("checkpoint %s unreadable, starting over", self.path)
+            return fresh_state()
+        state = fresh_state()
+        state.update(data)
+        return state
+
+    def save(self, state):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.path, "w") as fh:
+            json.dump(state, fh)
+
+    def clear(self):
+        self.path.unlink(missing_ok=True)
+"""Index storage: JSON-lines shards under var/index/.
+
+Each line is one index row (see reindex.transform).  The search service loads every
+`shard-*.jsonl` file in the directory; shard boundaries carry no meaning.  Rows are
+buffered and written out in blocks (one write + fsync per block) because the index
+volume is network storage in production and small appends are slow there.
+"""
+import json
+import os
+from pathlib import Path
+
+SHARD_ROWS = 1000      # rows per shard file before rotating
+BUFFER_ROWS = 200      # rows held in memory before a block write
+
+
+def shard_paths(index_dir):
+    return sorted(Path(index_dir).glob("shard-*.jsonl"))
+
+
+def iter_rows(index_dir):
+    for path in shard_paths(index_dir):
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                if line.strip():
+                    yield json.loads(line)
+
+
+class ShardWriter:
+    def __init__(self, index_dir, shard_rows=SHARD_ROWS, buffer_rows=BUFFER_ROWS):
+        self.index_dir = Path(index_dir)
+        self.index_dir.mkdir(parents=True, exist_ok=True)
+        self.shard_rows = shard_rows
+        self.buffer_rows = buffer_rows
+        self._buffer = []
+        self._fh = None
+        self._rows_in_shard = 0
+        self._next_shard = self._first_free_shard()
+
+    def _first_free_shard(self):
+        numbers = [int(p.stem.split("-", 1)[1]) for p in shard_paths(self.index_dir)]
+        return max(numbers) + 1 if numbers else 0
+
+    @property
+    def pending(self):
+        return len(self._buffer)
+
+    def reset(self):
+        """Drop every shard (used when a reindex starts from scratch)."""
+        self._close_shard()
+        for path in shard_paths(self.index_dir):
+            path.unlink()
+        self._next_shard = 0
+
+    def add(self, row):
+        self._buffer.append(row)
+        if len(self._buffer) >= self.buffer_rows:
+            self.flush()
+
+    def flush(self):
+        if not self._buffer:
+            return
+        for row in self._buffer:
+            if self._fh is None or self._rows_in_shard >= self.shard_rows:
+                self._rotate()
+            self._fh.write(json.dumps(row, sort_keys=True, separators=(",", ":"),
+                                      ensure_ascii=False) + "\n")
+            self._rows_in_shard += 1
+        self._fh.flush()
+        os.fsync(self._fh.fileno())
+        self._buffer.clear()
+
+    def _rotate(self):
+        self._close_shard()
+        path = self.index_dir / ("shard-%05d.jsonl" % self._next_shard)
+        self._fh = open(path, "a", encoding="utf-8")
+        self._next_shard += 1
+        self._rows_in_shard = 0
+
+    def _close_shard(self):
+        if self._fh is not None:
+            self._fh.close()
+            self._fh = None
+
+    def close(self):
+        self.flush()
+        self._close_shard()
+[?2004hroot@1988364556ea:/app# cat reindex/source.py reindex/transform.py
+[?2004l"""Source corpus: the documents table the search index is built from.
+
+The corpus lives in data/docs.db (SQLite).  Ids are increasing but not contiguous
+(deleted rows are purged now and then), and soft-deleted rows are skipped.
+`generate_corpus` builds the fixture corpus used in dev images and tests.
+"""
+import random
+import sqlite3
+from collections import namedtuple
+
+Doc = namedtuple("Doc", "id title body lang")
+
+DEFAULT_SEED = 20240611
+DEFAULT_COUNT = 6000
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS docs (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    lang TEXT NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
+);
+"""
+
+_ACCENTED = ["café", "naïve", "résumé", "über", "façade", "Ångström", "smörgåsbord",
+             "jalapeño", "Zürich", "déjà", "crème", "señor", "Straße", "coöperate"]
+_STOP = ["the", "of", "and", "to", "in", "is", "for", "with", "on", "as", "by", "at"]
+
+
+def _vocabulary(rng, size=700):
+    onsets = ["b", "c", "d", "f", "g", "h", "k", "l", "m", "n", "p", "r", "s", "t",
+              "v", "w", "z", "br", "ch", "cl", "dr", "gr", "pl", "qu", "sh", "st", "th", "tr"]
+    vowels = ["a", "e", "i", "o", "u", "ai", "ea", "io", "ou", "y"]
+    codas = ["", "", "n", "r", "s", "t", "l", "m", "ck", "nd", "st", "x"]
+    words = set()
+    while len(words) < size:
+        syllables = rng.randint(1, 3)
+        words.add("".join(rng.choice(onsets) + rng.choice(vowels) + rng.choice(codas)
+                          for _ in range(syllables)))
+    return sorted(words) + _ACCENTED + _STOP * 6
+
+
+def generate_corpus(path, count=DEFAULT_COUNT, seed=DEFAULT_SEED):
+    """Write a deterministic corpus of `count` documents to the SQLite file at `path`."""
+    rng = random.Random(seed)
+    vocab = _vocabulary(rng)
+    rows, doc_id = [], 0
+    for _ in range(count):
+        doc_id += rng.choice((1, 1, 1, 2, 3))
+        title = " ".join(rng.choice(vocab) for _ in range(rng.randint(2, 7))).title()
+        sentences = []
+        for _ in range(rng.randint(0, 9)):
+            words = [rng.choice(vocab) for _ in range(rng.randint(4, 18))]
+            if rng.random() < 0.15:
+                words[0] = words[0].upper()
+            sentences.append(" ".join(words).capitalize() + rng.choice((".", "!", "?", "...", ";")))
+        body = " ".join(sentences)
+        lang = rng.choice(("en", "en", "en", "de", "fr"))
+        deleted = 1 if rng.random() < 0.04 else 0
+        updated = "2024-%02d-%02d" % (rng.randint(1, 12), rng.randint(1, 28))
+        rows.append((doc_id, title, body, lang, deleted, updated))
+    conn = sqlite3.connect(path)
+    with conn:
+        conn.executescript(SCHEMA)
+        conn.execute("DELETE FROM docs")
+        conn.executemany("INSERT INTO docs VALUES (?, ?, ?, ?, ?, ?)", rows)
+    conn.close()
+    return len(rows)
+
+
+class Source:
+    """Read-only access to the live (not soft-deleted) documents, in id order."""
+
+    def __init__(self, path):
+        self.conn = sqlite3.connect("file:%s?mode=ro" % path, uri=True)
+
+    def count(self):
+        return self.conn.execute("SELECT COUNT(*) FROM docs WHERE deleted = 0").fetchone()[0]
+
+    def batches(self, start_id=0, size=25):
+        """Yield lists of Docs with id >= start_id, `size` at a time, in id order."""
+        next_id = start_id
+        while True:
+            rows = self.conn.execute(
+                "SELECT id, title, body, lang FROM docs WHERE deleted = 0 AND id >= ? "
+                "ORDER BY id LIMIT ?", (next_id, size)).fetchall()
+            if not rows:
+                return
+            yield [Doc(*row) for row in rows]
+            next_id = rows[-1][0] + 1
+
+    def close(self):
+        self.conn.close()
+
+
+if __name__ == "__main__":
+    import sys
+    out = sys.argv[1] if len(sys.argv) > 1 else "data/docs.db"
+    print("wrote %d docs to %s" % (generate_corpus(out), out))
+"""Document -> index row.
+
+Row format (consumed by the search service; do not change without a format bump):
+  id        source doc id
+  slug      url slug from the title
+  lang      language code
+  length    number of index tokens (stopwords removed)
+  terms     up to 8 most frequent tokens, ties broken alphabetically
+  checksum  sha256 prefix over the normalised title + body (change detection)
+  minhash   64 x 32-bit minhash values over character 5-grams (near-duplicate detection)
+"""
+import hashlib
+import re
+import unicodedata
+from collections import Counter
+
+TOKEN_RE = re.compile(r"[a-z0-9]+")
+STOPWORDS = frozenset("a an and are as at be by for from has in is it of on or that the to was "
+                      "were will with".split())
+TOP_TERMS = 8
+NUM_PERM = 64
+SHINGLE = 5
+_SALTS = [b"perm-%04d" % i for i in range(NUM_PERM)]
+
+
+def normalize(text):
+    """NFKD-fold accents away and lowercase."""
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(ch for ch in text if not unicodedata.combining(ch)).lower()
+
+
+def tokenize(text):
+    return [tok for tok in TOKEN_RE.findall(normalize(text)) if tok not in STOPWORDS]
+
+
+def slugify(title):
+    return "-".join(TOKEN_RE.findall(normalize(title)))[:64] or "untitled"
+
+
+def checksum(title, body):
+    digest = hashlib.sha256()
+    digest.update(normalize(title).encode("utf-8"))
+    digest.update(b"\x00")
+    digest.update(normalize(body).encode("utf-8"))
+    return digest.hexdigest()[:32]
+
+
+def minhash(tokens):
+    text = " ".join(tokens)
+    shingles = {text[i:i + SHINGLE] for i in range(max(1, len(text) - SHINGLE + 1))}
+    encoded = [s.encode("utf-8") for s in sorted(shingles)]
+    blake = hashlib.blake2b
+    signature = []
+    for salt in _SALTS:
+        signature.append(min(int.from_bytes(blake(s, digest_size=4, salt=salt).digest(), "big")
+                             for s in encoded))
+    return signature
+
+
+def transform_doc(doc):
+    tokens = tokenize(doc.title + " " + doc.body)
+    top = sorted(Counter(tokens).items(), key=lambda kv: (-kv[1], kv[0]))[:TOP_TERMS]
+    return {
+        "id": doc.id,
+        "slug": slugify(doc.title),
+        "lang": doc.lang,
+        "length": len(tokens),
+        "terms": [term for term, _ in top],
+        "checksum": checksum(doc.title, doc.body),
+        "minhash": minhash(tokens),
+    }
+[?2004hroot@1988364556ea:/app# cat ops/supervise.py tests/test_reindex.py
+[?2004l#!/usr/bin/env python3
+"""Job supervisor.  Every batch job in this repo runs through it.
+
+    python3 ops/supervise.py run <job>       run (or resume) the job inside its budget
+    python3 ops/supervise.py history <job>   show the last runs
+
+Per-job limits live in ops/limits.json.  When a run reaches its wall-clock budget
+the job's process group gets SIGTERM; whatever is still alive `grace_seconds` later
+gets SIGKILL.  Nothing the job started is left running when this returns.  A run
+that starts less than `cooldown_seconds` after the previous run ended waits out the
+rest of the cooldown first (the search replicas pick up newly published shards in
+between runs).
+
+Exit status: 0 job finished, 75 stopped at the budget (run again to continue),
+73 another run of the job holds the lock, anything else: the job failed.
+"""
+import argparse
+import fcntl
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+LIMITS_FILE = ROOT / "ops" / "limits.json"
+RUN_DIR = ROOT / "var" / "run"
+LOG_FILE = ROOT / "var" / "supervisor.log"
+JOBS = {"reindex": [sys.executable, "-m", "reindex.worker"]}
+EX_INCOMPLETE, EX_BUSY = 75, 73
+
+
+class _Interrupted(Exception):
+    pass
+
+
+def _raise_interrupted(signum, frame):
+    raise _Interrupted(signal.Signals(signum).name)
+
+
+def load_limits(job):
+    limits = json.loads(LIMITS_FILE.read_text())["jobs"][job]
+    return (float(limits["budget_seconds"]), float(limits["grace_seconds"]),
+            float(limits.get("cooldown_seconds", 0)))
+
+
+def _cooldown_left(stamp, cooldown):
+    try:
+        ended = float(stamp.read_text())
+    except (OSError, ValueError):
+        return 0.0
+    return max(0.0, min(cooldown, ended + cooldown - time.time()))
+
+
+def _signal_group(pgid, sig):
+    try:
+        os.killpg(pgid, sig)
+        return True
+    except ProcessLookupError:
+        return False
+
+
+def _stop(proc, grace):
+    """SIGTERM the job's group, SIGKILL after the grace period. Returns (rc, outcome)."""
+    _signal_group(proc.pid, signal.SIGTERM)
+    try:
+        return proc.wait(timeout=grace), "stopped"
+    except subprocess.TimeoutExpired:
+        print("supervise: still running %gs after SIGTERM, sending SIGKILL" % grace, flush=True)
+        _signal_group(proc.pid, signal.SIGKILL)
+        return proc.wait(), "killed"
+
+
+def run(job):
+    budget, grace, cooldown = load_limits(job)
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
+    lock = open(RUN_DIR / ("%s.lock" % job), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print("supervise: another %s run holds the lock" % job, file=sys.stderr)
+        return EX_BUSY
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(sig, _raise_interrupted)
+    stamp = RUN_DIR / ("%s.last" % job)
+    waited = _cooldown_left(stamp, cooldown)
+    if waited > 0:
+        print("supervise: previous %s run ended %.0fs ago, cooldown is %gs: starting in %.0fs"
+              % (job, cooldown - waited, cooldown, waited), flush=True)
+        try:
+            time.sleep(waited)
+        except (KeyboardInterrupt, _Interrupted):
+            print("supervise: cancelled during cooldown", file=sys.stderr)
+            return 130
+
+    started_at = time.strftime("%Y-%m-%dT%H:%M:%S")
+    t0 = time.monotonic()
+    proc = subprocess.Popen(JOBS[job], cwd=ROOT, start_new_session=True,
+                            env=dict(os.environ, SUPERVISED_JOB=job))
+    pidfile = RUN_DIR / ("%s.pid" % job)
+    pidfile.write_text("%d\n" % proc.pid)
+    print("supervise: %s started pid=%d budget=%gs grace=%gs" % (job, proc.pid, budget, grace),
+          flush=True)
+    stop_latency = None
+    try:
+        try:
+            rc, outcome = proc.wait(timeout=budget), "finished"
+        except subprocess.TimeoutExpired:
+            print("supervise: budget of %gs reached, sending SIGTERM" % budget, flush=True)
+            t_term = time.monotonic()
+            rc, outcome = _stop(proc, grace)
+            stop_latency = round(time.monotonic() - t_term, 3)
+    except (KeyboardInterrupt, _Interrupted):
+        t_term = time.monotonic()
+        rc, outcome = _stop(proc, grace)
+        outcome = "interrupted" if outcome == "stopped" else outcome
+        stop_latency = round(time.monotonic() - t_term, 3)
+    finally:
+        if _signal_group(proc.pid, signal.SIGKILL):   # stragglers left in the job's group
+            print("supervise: killed leftover processes of %s" % job, flush=True)
+        pidfile.unlink(missing_ok=True)
+        stamp.write_text("%.3f\n" % time.time())
+
+    record = {"job": job, "started_at": started_at, "pid": proc.pid,
+              "budget_seconds": budget, "grace_seconds": grace, "cooldown_seconds": cooldown,
+              "cooldown_waited": round(waited, 1), "outcome": outcome,
+              "returncode": rc, "elapsed": round(time.monotonic() - t0, 3),
+              "stop_latency": stop_latency}
+    with open(LOG_FILE, "a") as fh:
+        fh.write(json.dumps(record) + "\n")
+    print("supervise: %s %s after %.1fs (rc=%s)" % (job, outcome, record["elapsed"], rc), flush=True)
+    if outcome == "finished":
+        return 0 if rc == 0 else (rc if rc > 0 else 1)
+    if outcome == "stopped":
+        print("supervise: %s incomplete; run it again to continue" % job, flush=True)
+    return EX_INCOMPLETE
+
+
+def history(job, limit=10):
+    if not LOG_FILE.exists():
+        print("no runs recorded")
+        return 0
+    records = [json.loads(line) for line in LOG_FILE.read_text().splitlines() if line.strip()]
+    for rec in [r for r in records if r.get("job") == job][-limit:]:
+        print("%(started_at)s  %(outcome)-11s rc=%(returncode)-4s %(elapsed)7.1fs  "
+              "budget=%(budget_seconds)gs" % rec)
+    return 0
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(prog="supervise.py")
+    parser.add_argument("command", choices=("run", "history"))
+    parser.add_argument("job", choices=sorted(JOBS))
+    args = parser.parse_args(argv)
+    return run(args.job) if args.command == "run" else history(args.job)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+import os
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from reindex.source import Doc, Source, generate_corpus  # noqa: E402
+from reindex.store import ShardWriter, iter_rows, shard_paths  # noqa: E402
+from reindex.transform import transform_doc  # noqa: E402
+
+
+class TransformTest(unittest.TestCase):
+    def test_golden_row(self):
+        row = transform_doc(Doc(7, "Café Über Zürich", "The naïve résumé of the façade. Café café!", "fr"))
+        self.assertEqual(row["slug"], "cafe-uber-zurich")
+        self.assertEqual(row["terms"], ["cafe", "facade", "naive", "resume", "uber", "zurich"])
+        self.assertEqual(row["length"], 8)
+        self.assertEqual(row["checksum"], "fbe4334594f1a63f211e2742efb9681a")
+        self.assertEqual(row["minhash"][:4], [51805901, 103584590, 473029234, 2680140])
+        self.assertEqual(len(row["minhash"]), 64)
+
+    def test_empty_body(self):
+        row = transform_doc(Doc(1, "Untitled", "", "en"))
+        self.assertEqual(row["length"], 1)
+        self.assertEqual(len(row["minhash"]), 64)
+
+
+class StoreTest(unittest.TestCase):
+    def test_rows_round_trip_across_shards(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            writer = ShardWriter(tmp, shard_rows=4, buffer_rows=3)
+            for i in range(10):
+                writer.add({"id": i})
+            writer.close()
+            self.assertEqual([r["id"] for r in iter_rows(tmp)], list(range(10)))
+            self.assertEqual(len(shard_paths(tmp)), 3)
+
+
+class ResumeTest(unittest.TestCase):
+    def _worker(self, tmp):
+        return [sys.executable, "-m", "reindex.worker", "--source", str(tmp / "docs.db"),
+                "--index-dir", str(tmp / "index"), "--checkpoint", str(tmp / "ckpt.json")]
+
+    def test_stop_and_resume_gives_complete_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            generate_corpus(tmp / "docs.db", count=400, seed=5)
+            proc = subprocess.Popen(self._worker(tmp), cwd=ROOT, stderr=subprocess.DEVNULL)
+            time.sleep(1.5)
+            proc.send_signal(signal.SIGTERM)
+            proc.wait(timeout=10)
+            subprocess.run(self._worker(tmp), cwd=ROOT, check=True, timeout=120,
+                           stderr=subprocess.DEVNULL)
+            ids = [row["id"] for row in iter_rows(tmp / "index")]
+            source = Source(tmp / "docs.db")
+            expected = [d.id for batch in source.batches(0, 100) for d in batch]
+            source.close()
+            self.assertEqual(len(ids), len(set(ids)), "duplicate rows in index")
+            self.assertEqual(sorted(ids), expected)
+
+
+if __name__ == "__main__":
+    unittest.main()
+[?2004hroot@1988364556ea:/app# cat reindex/checkpoint.py reindex/store.py
+[?2004l"""Reindex progress checkpoint (var/checkpoint.json)."""
+import json
+import logging
+from pathlib import Path
+
+log = logging.getLogger("reindex.checkpoint")
+
+
+def fresh_state():
+    # last_id: id of the last document handled; docs: documents indexed so far
+    return {"last_id": 0, "docs": 0, "complete": False}
+
+
+class Checkpoint:
+    def __init__(self, path):
+        self.path = Path(path)
+
+    def load(self):
+        try:
+            data = json.loads(self.path.read_text())
+        except FileNotFoundError:
+            return fresh_state()
+        except ValueError:
+            log.warning("checkpoint %s unreadable, starting over", self.path)
+            return fresh_state()
+        state = fresh_state()
+        state.update(data)
+        return state
+
+    def save(self, state):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.path, "w") as fh:
+            json.dump(state, fh)
+
+    def clear(self):
+        self.path.unlink(missing_ok=True)
+"""Index storage: JSON-lines shards under var/index/.
+
+Each line is one index row (see reindex.transform).  The search service loads every
+`shard-*.jsonl` file in the directory; shard boundaries carry no meaning.  Rows are
+buffered and written out in blocks (one write + fsync per block) because the index
+volume is network storage in production and small appends are slow there.
+"""
+import json
+import os
+from pathlib import Path
+
+SHARD_ROWS = 1000      # rows per shard file before rotating
+BUFFER_ROWS = 200      # rows held in memory before a block write
+
+
+def shard_paths(index_dir):
+    return sorted(Path(index_dir).glob("shard-*.jsonl"))
+
+
+def iter_rows(index_dir):
+    for path in shard_paths(index_dir):
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                if line.strip():
+                    yield json.loads(line)
+
+
+class ShardWriter:
+    def __init__(self, index_dir, shard_rows=SHARD_ROWS, buffer_rows=BUFFER_ROWS):
+        self.index_dir = Path(index_dir)
+        self.index_dir.mkdir(parents=True, exist_ok=True)
+        self.shard_rows = shard_rows
+        self.buffer_rows = buffer_rows
+        self._buffer = []
+        self._fh = None
+        self._rows_in_shard = 0
+        self._next_shard = self._first_free_shard()
+
+    def _first_free_shard(self):
+        numbers = [int(p.stem.split("-", 1)[1]) for p in shard_paths(self.index_dir)]
+        return max(numbers) + 1 if numbers else 0
+
+    @property
+    def pending(self):
+        return len(self._buffer)
+
+    def reset(self):
+        """Drop every shard (used when a reindex starts from scratch)."""
+        self._close_shard()
+        for path in shard_paths(self.index_dir):
+            path.unlink()
+        self._next_shard = 0
+
+    def add(self, row):
+        self._buffer.append(row)
+        if len(self._buffer) >= self.buffer_rows:
+            self.flush()
+
+    def flush(self):
+        if not self._buffer:
+            return
+        for row in self._buffer:
+            if self._fh is None or self._rows_in_shard >= self.shard_rows:
+                self._rotate()
+            self._fh.write(json.dumps(row, sort_keys=True, separators=(",", ":"),
+                                      ensure_ascii=False) + "\n")
+            self._rows_in_shard += 1
+        self._fh.flush()
+        os.fsync(self._fh.fileno())
+        self._buffer.clear()
+
+    def _rotate(self):
+        self._close_shard()
+        path = self.index_dir / ("shard-%05d.jsonl" % self._next_shard)
+        self._fh = open(path, "a", encoding="utf-8")
+        self._next_shard += 1
+        self._rows_in_shard = 0
+
+    def _close_shard(self):
+        if self._fh is not None:
+            self._fh.close()
+            self._fh = None
+
+    def close(self):
+        self.flush()
+        self._close_shard()
+[?2004hroot@1988364556ea:/app# cat reindex/source.py
+[?2004l"""Source corpus: the documents table the search index is built from.
+
+The corpus lives in data/docs.db (SQLite).  Ids are increasing but not contiguous
+(deleted rows are purged now and then), and soft-deleted rows are skipped.
+`generate_corpus` builds the fixture corpus used in dev images and tests.
+"""
+import random
+import sqlite3
+from collections import namedtuple
+
+Doc = namedtuple("Doc", "id title body lang")
+
+DEFAULT_SEED = 20240611
+DEFAULT_COUNT = 6000
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS docs (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    lang TEXT NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
+);
+"""
+
+_ACCENTED = ["café", "naïve", "résumé", "über", "façade", "Ångström", "smörgåsbord",
+             "jalapeño", "Zürich", "déjà", "crème", "señor", "Straße", "coöperate"]
+_STOP = ["the", "of", "and", "to", "in", "is", "for", "with", "on", "as", "by", "at"]
+
+
+def _vocabulary(rng, size=700):
+    onsets = ["b", "c", "d", "f", "g", "h", "k", "l", "m", "n", "p", "r", "s", "t",
+              "v", "w", "z", "br", "ch", "cl", "dr", "gr", "pl", "qu", "sh", "st", "th", "tr"]
+    vowels = ["a", "e", "i", "o", "u", "ai", "ea", "io", "ou", "y"]
+    codas = ["", "", "n", "r", "s", "t", "l", "m", "ck", "nd", "st", "x"]
+    words = set()
+    while len(words) < size:
+        syllables = rng.randint(1, 3)
+        words.add("".join(rng.choice(onsets) + rng.choice(vowels) + rng.choice(codas)
+                          for _ in range(syllables)))
+    return sorted(words) + _ACCENTED + _STOP * 6
+
+
+def generate_corpus(path, count=DEFAULT_COUNT, seed=DEFAULT_SEED):
+    """Write a deterministic corpus of `count` documents to the SQLite file at `path`."""
+    rng = random.Random(seed)
+    vocab = _vocabulary(rng)
+    rows, doc_id = [], 0
+    for _ in range(count):
+        doc_id += rng.choice((1, 1, 1, 2, 3))
+        title = " ".join(rng.choice(vocab) for _ in range(rng.randint(2, 7))).title()
+        sentences = []
+        for _ in range(rng.randint(0, 9)):
+            words = [rng.choice(vocab) for _ in range(rng.randint(4, 18))]
+            if rng.random() < 0.15:
+                words[0] = words[0].upper()
+            sentences.append(" ".join(words).capitalize() + rng.choice((".", "!", "?", "...", ";")))
+        body = " ".join(sentences)
+        lang = rng.choice(("en", "en", "en", "de", "fr"))
+        deleted = 1 if rng.random() < 0.04 else 0
+        updated = "2024-%02d-%02d" % (rng.randint(1, 12), rng.randint(1, 28))
+        rows.append((doc_id, title, body, lang, deleted, updated))
+    conn = sqlite3.connect(path)
+    with conn:
+        conn.executescript(SCHEMA)
+        conn.execute("DELETE FROM docs")
+        conn.executemany("INSERT INTO docs VALUES (?, ?, ?, ?, ?, ?)", rows)
+    conn.close()
+    return len(rows)
+
+
+class Source:
+    """Read-only access to the live (not soft-deleted) documents, in id order."""
+
+    def __init__(self, path):
+        self.conn = sqlite3.connect("file:%s?mode=ro" % path, uri=True)
+
+    def count(self):
+        return self.conn.execute("SELECT COUNT(*) FROM docs WHERE deleted = 0").fetchone()[0]
+
+    def batches(self, start_id=0, size=25):
+        """Yield lists of Docs with id >= start_id, `size` at a time, in id order."""
+        next_id = start_id
+        while True:
+            rows = self.conn.execute(
+                "SELECT id, title, body, lang FROM docs WHERE deleted = 0 AND id >= ? "
+                "ORDER BY id LIMIT ?", (next_id, size)).fetchall()
+            if not rows:
+                return
+            yield [Doc(*row) for row in rows]
+            next_id = rows[-1][0] + 1
+
+    def close(self):
+        self.conn.close()
+
+
+if __name__ == "__main__":
+    import sys
+    out = sys.argv[1] if len(sys.argv) > 1 else "data/docs.db"
+    print("wrote %d docs to %s" % (generate_corpus(out), out))
+[?2004hroot@1988364556ea:/app# cat reindex/transform.py
+[?2004l"""Document -> index row.
+
+Row format (consumed by the search service; do not change without a format bump):
+  id        source doc id
+  slug      url slug from the title
+  lang      language code
+  length    number of index tokens (stopwords removed)
+  terms     up to 8 most frequent tokens, ties broken alphabetically
+  checksum  sha256 prefix over the normalised title + body (change detection)
+  minhash   64 x 32-bit minhash values over character 5-grams (near-duplicate detection)
+"""
+import hashlib
+import re
+import unicodedata
+from collections import Counter
+
+TOKEN_RE = re.compile(r"[a-z0-9]+")
+STOPWORDS = frozenset("a an and are as at be by for from has in is it of on or that the to was "
+                      "were will with".split())
+TOP_TERMS = 8
+NUM_PERM = 64
+SHINGLE = 5
+_SALTS = [b"perm-%04d" % i for i in range(NUM_PERM)]
+
+
+def normalize(text):
+    """NFKD-fold accents away and lowercase."""
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(ch for ch in text if not unicodedata.combining(ch)).lower()
+
+
+def tokenize(text):
+    return [tok for tok in TOKEN_RE.findall(normalize(text)) if tok not in STOPWORDS]
+
+
+def slugify(title):
+    return "-".join(TOKEN_RE.findall(normalize(title)))[:64] or "untitled"
+
+
+def checksum(title, body):
+    digest = hashlib.sha256()
+    digest.update(normalize(title).encode("utf-8"))
+    digest.update(b"\x00")
+    digest.update(normalize(body).encode("utf-8"))
+    return digest.hexdigest()[:32]
+
+
+def minhash(tokens):
+    text = " ".join(tokens)
+    shingles = {text[i:i + SHINGLE] for i in range(max(1, len(text) - SHINGLE + 1))}
+    encoded = [s.encode("utf-8") for s in sorted(shingles)]
+    blake = hashlib.blake2b
+    signature = []
+    for salt in _SALTS:
+        signature.append(min(int.from_bytes(blake(s, digest_size=4, salt=salt).digest(), "big")
+                             for s in encoded))
+    return signature
+
+
+def transform_doc(doc):
+    tokens = tokenize(doc.title + " " + doc.body)
+    top = sorted(Counter(tokens).items(), key=lambda kv: (-kv[1], kv[0]))[:TOP_TERMS]
+    return {
+        "id": doc.id,
+        "slug": slugify(doc.title),
+        "lang": doc.lang,
+        "length": len(tokens),
+        "terms": [term for term, _ in top],
+        "checksum": checksum(doc.title, doc.body),
+        "minhash": minhash(tokens),
+    }
+[?2004hroot@1988364556ea:/app# sed -n '1,145p' ops/supervise.py
+[?2004l#!/usr/bin/env python3
+"""Job supervisor.  Every batch job in this repo runs through it.
+
+    python3 ops/supervise.py run <job>       run (or resume) the job inside its budget
+    python3 ops/supervise.py history <job>   show the last runs
+
+Per-job limits live in ops/limits.json.  When a run reaches its wall-clock budget
+the job's process group gets SIGTERM; whatever is still alive `grace_seconds` later
+gets SIGKILL.  Nothing the job started is left running when this returns.  A run
+that starts less than `cooldown_seconds` after the previous run ended waits out the
+rest of the cooldown first (the search replicas pick up newly published shards in
+between runs).
+
+Exit status: 0 job finished, 75 stopped at the budget (run again to continue),
+73 another run of the job holds the lock, anything else: the job failed.
+"""
+import argparse
+import fcntl
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+LIMITS_FILE = ROOT / "ops" / "limits.json"
+RUN_DIR = ROOT / "var" / "run"
+LOG_FILE = ROOT / "var" / "supervisor.log"
+JOBS = {"reindex": [sys.executable, "-m", "reindex.worker"]}
+EX_INCOMPLETE, EX_BUSY = 75, 73
+
+
+class _Interrupted(Exception):
+    pass
+
+
+def _raise_interrupted(signum, frame):
+    raise _Interrupted(signal.Signals(signum).name)
+
+
+def load_limits(job):
+    limits = json.loads(LIMITS_FILE.read_text())["jobs"][job]
+    return (float(limits["budget_seconds"]), float(limits["grace_seconds"]),
+            float(limits.get("cooldown_seconds", 0)))
+
+
+def _cooldown_left(stamp, cooldown):
+    try:
+        ended = float(stamp.read_text())
+    except (OSError, ValueError):
+        return 0.0
+    return max(0.0, min(cooldown, ended + cooldown - time.time()))
+
+
+def _signal_group(pgid, sig):
+    try:
+        os.killpg(pgid, sig)
+        return True
+    except ProcessLookupError:
+        return False
+
+
+def _stop(proc, grace):
+    """SIGTERM the job's group, SIGKILL after the grace period. Returns (rc, outcome)."""
+    _signal_group(proc.pid, signal.SIGTERM)
+    try:
+        return proc.wait(timeout=grace), "stopped"
+    except subprocess.TimeoutExpired:
+        print("supervise: still running %gs after SIGTERM, sending SIGKILL" % grace, flush=True)
+        _signal_group(proc.pid, signal.SIGKILL)
+        return proc.wait(), "killed"
+
+
+def run(job):
+    budget, grace, cooldown = load_limits(job)
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
+    lock = open(RUN_DIR / ("%s.lock" % job), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print("supervise: another %s run holds the lock" % job, file=sys.stderr)
+        return EX_BUSY
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(sig, _raise_interrupted)
+    stamp = RUN_DIR / ("%s.last" % job)
+    waited = _cooldown_left(stamp, cooldown)
+    if waited > 0:
+        print("supervise: previous %s run ended %.0fs ago, cooldown is %gs: starting in %.0fs"
+              % (job, cooldown - waited, cooldown, waited), flush=True)
+        try:
+            time.sleep(waited)
+        except (KeyboardInterrupt, _Interrupted):
+            print("supervise: cancelled during cooldown", file=sys.stderr)
+            return 130
+
+    started_at = time.strftime("%Y-%m-%dT%H:%M:%S")
+    t0 = time.monotonic()
+    proc = subprocess.Popen(JOBS[job], cwd=ROOT, start_new_session=True,
+                            env=dict(os.environ, SUPERVISED_JOB=job))
+    pidfile = RUN_DIR / ("%s.pid" % job)
+    pidfile.write_text("%d\n" % proc.pid)
+    print("supervise: %s started pid=%d budget=%gs grace=%gs" % (job, proc.pid, budget, grace),
+          flush=True)
+    stop_latency = None
+    try:
+        try:
+            rc, outcome = proc.wait(timeout=budget), "finished"
+        except subprocess.TimeoutExpired:
+            print("supervise: budget of %gs reached, sending SIGTERM" % budget, flush=True)
+            t_term = time.monotonic()
+            rc, outcome = _stop(proc, grace)
+            stop_latency = round(time.monotonic() - t_term, 3)
+    except (KeyboardInterrupt, _Interrupted):
+        t_term = time.monotonic()
+        rc, outcome = _stop(proc, grace)
+        outcome = "interrupted" if outcome == "stopped" else outcome
+        stop_latency = round(time.monotonic() - t_term, 3)
+    finally:
+        if _signal_group(proc.pid, signal.SIGKILL):   # stragglers left in the job's group
+            print("supervise: killed leftover processes of %s" % job, flush=True)
+        pidfile.unlink(missing_ok=True)
+        stamp.write_text("%.3f\n" % time.time())
+
+    record = {"job": job, "started_at": started_at, "pid": proc.pid,
+              "budget_seconds": budget, "grace_seconds": grace, "cooldown_seconds": cooldown,
+              "cooldown_waited": round(waited, 1), "outcome": outcome,
+              "returncode": rc, "elapsed": round(time.monotonic() - t0, 3),
+              "stop_latency": stop_latency}
+    with open(LOG_FILE, "a") as fh:
+        fh.write(json.dumps(record) + "\n")
+    print("supervise: %s %s after %.1fs (rc=%s)" % (job, outcome, record["elapsed"], rc), flush=True)
+    if outcome == "finished":
+        return 0 if rc == 0 else (rc if rc > 0 else 1)
+    if outcome == "stopped":
+        print("supervise: %s incomplete; run it again to continue" % job, flush=True)
+    return EX_INCOMPLETE
+
+
+def history(job, limit=10):
+    if not LOG_FILE.exists():
+        print("no runs recorded")
+        return 0
+    records = [json.loads(line) for line in LOG_FILE.read_text().splitlines() if line.strip()]
+[?2004hroot@1988364556ea:/app# sed -n '65,180p' reindex/source.py
+[?2004l    with conn:
+        conn.executescript(SCHEMA)
+        conn.execute("DELETE FROM docs")
+        conn.executemany("INSERT INTO docs VALUES (?, ?, ?, ?, ?, ?)", rows)
+    conn.close()
+    return len(rows)
+
+
+class Source:
+    """Read-only access to the live (not soft-deleted) documents, in id order."""
+
+    def __init__(self, path):
+        self.conn = sqlite3.connect("file:%s?mode=ro" % path, uri=True)
+
+    def count(self):
+        return self.conn.execute("SELECT COUNT(*) FROM docs WHERE deleted = 0").fetchone()[0]
+
+    def batches(self, start_id=0, size=25):
+        """Yield lists of Docs with id >= start_id, `size` at a time, in id order."""
+        next_id = start_id
+        while True:
+            rows = self.conn.execute(
+                "SELECT id, title, body, lang FROM docs WHERE deleted = 0 AND id >= ? "
+                "ORDER BY id LIMIT ?", (next_id, size)).fetchall()
+            if not rows:
+                return
+            yield [Doc(*row) for row in rows]
+            next_id = rows[-1][0] + 1
+
+    def close(self):
+        self.conn.close()
+
+
+if __name__ == "__main__":
+    import sys
+    out = sys.argv[1] if len(sys.argv) > 1 else "data/docs.db"
+    print("wrote %d docs to %s" % (generate_corpus(out), out))
+[?2004hroot@1988364556ea:/app# cat reindex/transform.py
+[?2004l"""Document -> index row.
+
+Row format (consumed by the search service; do not change without a format bump):
+  id        source doc id
+  slug      url slug from the title
+  lang      language code
+  length    number of index tokens (stopwords removed)
+  terms     up to 8 most frequent tokens, ties broken alphabetically
+  checksum  sha256 prefix over the normalised title + body (change detection)
+  minhash   64 x 32-bit minhash values over character 5-grams (near-duplicate detection)
+"""
+import hashlib
+import re
+import unicodedata
+from collections import Counter
+
+TOKEN_RE = re.compile(r"[a-z0-9]+")
+STOPWORDS = frozenset("a an and are as at be by for from has in is it of on or that the to was "
+                      "were will with".split())
+TOP_TERMS = 8
+NUM_PERM = 64
+SHINGLE = 5
+_SALTS = [b"perm-%04d" % i for i in range(NUM_PERM)]
+
+
+def normalize(text):
+    """NFKD-fold accents away and lowercase."""
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(ch for ch in text if not unicodedata.combining(ch)).lower()
+
+
+def tokenize(text):
+    return [tok for tok in TOKEN_RE.findall(normalize(text)) if tok not in STOPWORDS]
+
+
+def slugify(title):
+    return "-".join(TOKEN_RE.findall(normalize(title)))[:64] or "untitled"
+
+
+def checksum(title, body):
+    digest = hashlib.sha256()
+    digest.update(normalize(title).encode("utf-8"))
+    digest.update(b"\x00")
+    digest.update(normalize(body).encode("utf-8"))
+    return digest.hexdigest()[:32]
+
+
+def minhash(tokens):
+    text = " ".join(tokens)
+    shingles = {text[i:i + SHINGLE] for i in range(max(1, len(text) - SHINGLE + 1))}
+    encoded = [s.encode("utf-8") for s in sorted(shingles)]
+    blake = hashlib.blake2b
+    signature = []
+    for salt in _SALTS:
+        signature.append(min(int.from_bytes(blake(s, digest_size=4, salt=salt).digest(), "big")
+                             for s in encoded))
+    return signature
+
+
+def transform_doc(doc):
+    tokens = tokenize(doc.title + " " + doc.body)
+    top = sorted(Counter(tokens).items(), key=lambda kv: (-kv[1], kv[0]))[:TOP_TERMS]
+    return {
+        "id": doc.id,
+        "slug": slugify(doc.title),
+        "lang": doc.lang,
+        "length": len(tokens),
+        "terms": [term for term, _ in top],
+        "checksum": checksum(doc.title, doc.body),
+        "minhash": minhash(tokens),
+    }
+[?2004hroot@1988364556ea:/app# head -18 ops/supervise.py; ls -la var; git status --short 2>/dev/null || true
+[?2004l#!/usr/bin/env python3
+"""Job supervisor.  Every batch job in this repo runs through it.
+
+    python3 ops/supervise.py run <job>       run (or resume) the job inside its budget
+    python3 ops/supervise.py history <job>   show the last runs
+
+Per-job limits live in ops/limits.json.  When a run reaches its wall-clock budget
+the job's process group gets SIGTERM; whatever is still alive `grace_seconds` later
+gets SIGKILL.  Nothing the job started is left running when this returns.  A run
+that starts less than `cooldown_seconds` after the previous run ended waits out the
+rest of the cooldown first (the search replicas pick up newly published shards in
+between runs).
+
+Exit status: 0 job finished, 75 stopped at the budget (run again to continue),
+73 another run of the job holds the lock, anything else: the job failed.
+"""
+import argparse
+import fcntl
+total 12
+drwxr-xr-x 2 root root 4096 Nov 22 16:09 .
+drwxr-xr-x 1 root root 4096 Nov 22 16:09 ..
+[?2004hroot@1988364556ea:/app# cat > reindex/durable.py <<'EOF'
+[?2004l[?2004h> """Filesystem durability helpers shared by checkpoint and shard commits."""
+[?2004l[?2004h> import os
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def sync_directory(path):
+[?2004l[?2004h>     fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         os.fsync(fd)
+[?2004l[?2004h>     finally:
+[?2004l[?2004h>         os.close(fd)
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@1988364556ea:/app# python3 - <<'PY'
+[?2004l[?2004h> p='reindex/checkpoint.py'
+[?2004l[?2004h> s=open(p).read().replace('import logging\n', 'import logging\nimport os\nimport tempfile\n')
+[?2004l[?2004h> s=s.replace('from pathlib import Path\n', 'from pathlib import Path\n\nfrom reindex.durable import sync_directory\n')
+[?2004l[?2004h> s=s.replace('        with open(self.path, "w") as fh:\n            json.dump(state, fh)\n', '''        # A crash leaves either the old checkpoint or the new one, never half JSON.
+[?2004l[?2004h>         fd, temporary = tempfile.mkstemp(prefix=self.path.name + ".", suffix=".tmp",
+[?2004l[?2004h>                                          dir=self.path.parent)
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             with os.fdopen(fd, "w", encoding="utf-8") as fh:
+[?2004l[?2004h>                 json.dump(state, fh)
+[?2004l[?2004h>                 fh.flush()
+[?2004l[?2004h>                 os.fsync(fh.fileno())
+[?2004l[?2004h>             os.replace(temporary, self.path)
+[?2004l[?2004h>             sync_directory(self.path.parent)
+[?2004l[?2004h>         finally:
+[?2004l[?2004h>             Path(temporary).unlink(missing_ok=True)
+[?2004l[?2004h> ''')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> p='reindex/store.py'
+[?2004l[?2004h> s=open(p).read().replace('from pathlib import Path\n', 'from pathlib import Path\n\nfrom reindex.durable import sync_directory\n')
+[?2004l[?2004h> s=s.replace('        self._next_shard = 0\n\n    def add', '''        self._buffer.clear()
+[?2004l[?2004h>         self._rows_in_shard = 0
+[?2004l[?2004h>         self._next_shard = 0
+[?2004l[?2004h>         sync_directory(self.index_dir)
+[?2004l[?2004h> 
+[?2004l[?2004h>     def recover(self, offsets):
+[?2004l[?2004h>         """Roll back everything not named by the last atomic checkpoint.
+[?2004l[?2004h> 
+[?2004l[?2004h>         Validate before modifying anything: missing committed bytes are an error,
+[?2004l[?2004h>         not a reason to advance or silently discard a checkpoint.
+[?2004l[?2004h>         """
+[?2004l[?2004h>         paths = {p.name: p for p in shard_paths(self.index_dir)}
+[?2004l[?2004h>         for name, offset in offsets.items():
+[?2004l[?2004h>             if name not in paths or not isinstance(offset, int) or offset < 0:
+[?2004l[?2004h>                 raise ValueError("invalid or missing committed shard: %s" % name)
+[?2004l[?2004h>             if paths[name].stat().st_size < offset:
+[?2004l[?2004h>                 raise ValueError("committed shard is too short: %s" % name)
+[?2004l[?2004h>         self._buffer.clear()
+[?2004l[?2004h>         self._close_shard()
+[?2004l[?2004h>         for name, path in paths.items():
+[?2004l[?2004h>             if name not in offsets:
+[?2004l[?2004h>                 path.unlink()
+[?2004l[?2004h>             elif path.stat().st_size != offsets[name]:
+[?2004l[?2004h>                 with open(path, "r+b") as fh:
+[?2004l[?2004h>                     fh.truncate(offsets[name])
+[?2004l[?2004h>                     fh.flush()
+[?2004l[?2004h>                     os.fsync(fh.fileno())
+[?2004l[?2004h>         sync_directory(self.index_dir)
+[?2004l[?2004h>         self._next_shard = self._first_free_shard()
+[?2004l[?2004h>         self._rows_in_shard = 0
+[?2004l[?2004h> 
+[?2004l[?2004h>     def committed_offsets(self):
+[?2004l[?2004h>         """Flush all rows before returning the durable byte positions to publish."""
+[?2004l[?2004h>         self.flush()
+[?2004l[?2004h>         sync_directory(self.index_dir)
+[?2004l[?2004h>         return {p.name: p.stat().st_size for p in shard_paths(self.index_dir)}
+[?2004l[?2004h> 
+[?2004l[?2004h>     def add''')
+[?2004l[?2004h> s=s.replace('        if self._fh is not None:\n            self._fh.close()', '        if self._fh is not None:\n            self._fh.flush()\n            os.fsync(self._fh.fileno())\n            self._fh.close()')
+[?2004l[?2004h> s += '''
+[?2004l[?2004h>     def abort(self):
+[?2004l[?2004h>         """Release resources without promoting buffered rows to committed work."""
+[?2004l[?2004h>         self._buffer.clear()
+[?2004l[?2004h>         self._close_shard()
+[?2004l[?2004h> '''
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@1988364556ea:/app# python3 - <<'PY'
+[?2004l[?2004h> p='reindex/worker.py'
+[?2004l[?2004h> s=open(p).read().replace('`make reindex`', '`./jobs reindex`').replace('import logging\n', 'import logging\nimport signal\n')
+[?2004l[?2004h> start=s.index('def run(args):')
+[?2004l[?2004h> end=s.index('\n\ndef main(', start)
+[?2004l[?2004h> s=s[:start]+'''def run(args):
+[?2004l[?2004h>     if args.batch_size <= 0:
+[?2004l[?2004h>         raise ValueError("batch size must be positive")
+[?2004l[?2004h>     stopping = False
+[?2004l[?2004h> 
+[?2004l[?2004h>     def request_stop(signum, frame):
+[?2004l[?2004h>         nonlocal stopping
+[?2004l[?2004h>         stopping = True
+[?2004l[?2004h> 
+[?2004l[?2004h>     handlers = {sig: signal.signal(sig, request_stop)
+[?2004l[?2004h>                 for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
+[?2004l[?2004h>     source = store = None
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         ckpt = Checkpoint(args.checkpoint)
+[?2004l[?2004h>         state = ckpt.load()
+[?2004l[?2004h>         # Old checkpoints could get ahead of the index. There is no trustworthy
+[?2004l[?2004h>         # durable boundary in that format, so migrate by rebuilding, not guessing.
+[?2004l[?2004h>         if "shards" not in state:
+[?2004l[?2004h>             if state["docs"] or state["complete"]:
+[?2004l[?2004h>                 log.warning("legacy checkpoint has no durable offsets; rebuilding")
+[?2004l[?2004h>             state = {"last_id": 0, "docs": 0, "complete": False, "shards": {}}
+[?2004l[?2004h>             ckpt.save(state)
+[?2004l[?2004h>         store = ShardWriter(args.index_dir)
+[?2004l[?2004h>         store.recover(state["shards"])
+[?2004l[?2004h>         if state["complete"]:
+[?2004l[?2004h>             log.info("index already complete (%d docs)", state["docs"])
+[?2004l[?2004h>             return 0
+[?2004l[?2004h>         source = Source(args.source)
+[?2004l[?2004h>         total = source.count()
+[?2004l[?2004h>         started = time.monotonic()
+[?2004l[?2004h>         initial_docs = state["docs"]
+[?2004l[?2004h>         log.info("starting after id %d (%d/%d docs done)", state["last_id"], state["docs"], total)
+[?2004l[?2004h> 
+[?2004l[?2004h>         # Source.batches is inclusive; last_id is the last *committed* document.
+[?2004l[?2004h>         for n, batch in enumerate(source.batches(start_id=state["last_id"] + 1,
+[?2004l[?2004h>                                                 size=args.batch_size), 1):
+[?2004l[?2004h>             last_id, count = state["last_id"], 0
+[?2004l[?2004h>             for doc in batch:
+[?2004l[?2004h>                 if stopping:
+[?2004l[?2004h>                     break
+[?2004l[?2004h>                 store.add(transform_doc(doc))
+[?2004l[?2004h>                 last_id = doc.id
+[?2004l[?2004h>                 count += 1
+[?2004l[?2004h>             if count:
+[?2004l[?2004h>                 # All shard data (including rotated shards and directory entries)
+[?2004l[?2004h>                 # is durable before publishing the corresponding checkpoint.
+[?2004l[?2004h>                 offsets = store.committed_offsets()
+[?2004l[?2004h>                 state = dict(state, last_id=last_id, docs=state["docs"] + count,
+[?2004l[?2004h>                              shards=offsets)
+[?2004l[?2004h>                 ckpt.save(state)
+[?2004l[?2004h>             if stopping:
+[?2004l[?2004h>                 log.info("stopped safely: last_id=%d docs=%d/%d",
+[?2004l[?2004h>                          state["last_id"], state["docs"], total)
+[?2004l[?2004h>                 return 75
+[?2004l[?2004h>             if n % 20 == 0:
+[?2004l[?2004h>                 rate = (state["docs"] - initial_docs) / (time.monotonic() - started)
+[?2004l[?2004h>                 log.info("progress: last_id=%d docs=%d/%d (%.0f docs/s)",
+[?2004l[?2004h>                          state["last_id"], state["docs"], total, rate)
+[?2004l[?2004h> 
+[?2004l[?2004h>         state = dict(state, complete=True, shards=store.committed_offsets())
+[?2004l[?2004h>         ckpt.save(state)
+[?2004l[?2004h>         log.info("reindex complete: %d docs", state["docs"])
+[?2004l[?2004h>         return 0
+[?2004l[?2004h>     finally:
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             if store is not None:
+[?2004l[?2004h>                 store.abort()
+[?2004l[?2004h>             if source is not None:
+[?2004l[?2004h>                 source.close()
+[?2004l[?2004h>         finally:
+[?2004l[?2004h>             for sig, handler in handlers.items():
+[?2004l[?2004h>                 signal.signal(sig, handler)
+[?2004l[?2004h> ''' +s[end:]
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@1988364556ea:/app# ./jobs reindex > var/build.log 2>&1 & echo "supervised run pid=$!"
+[?2004l[1] 249
+supervised run pid=249
+[?2004hroot@1988364556ea:/app# ./jobs test > /tmp/reindex-tests.log 2>&1 & echo "tests pid=$!"
+[?2004l[2] 250
+tests pid=250
+[?2004hroot@1988364556ea:/app# python3 - <<'PY'
+[?2004l[?2004h> import time
+[?2004l[?2004h> from reindex.source import Source
+[?2004l[?2004h> from reindex.transform import transform_doc
+[?2004l[?2004h> s=Source('data/docs.db'); docs=next(s.batches(size=10)); t=time.monotonic()
+[?2004l[?2004h> for d in docs: transform_doc(d)
+[?2004l[?2004h> print('seconds per doc:', (time.monotonic()-t)/len(docs)); s.close()
+[?2004l[?2004h> PY
+[?2004lseconds per doc: 0.06011763229998905
+[?2004hroot@1988364556ea:/app# cat var/build.log /tmp/reindex-tests.log; ./jobs status; nproc; cat /sys/fs/cgroup/cpu.max 2>/dev/null
+[?2004lsupervise: reindex started pid=253 budget=10s grace=5s
+2026-11-22 16:11:10,683 reindex.worker INFO starting after id 0 (0/5739 docs done)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:11:20,668 reindex.worker INFO stopped safely: last_id=572 docs=333/5739
+supervise: reindex stopped after 10.1s (rc=75)
+supervise: reindex incomplete; run it again to continue
+test_stop_and_resume_gives_complete_index (test_reindex.ResumeTest.test_stop_and_resume_gives_complete_index) ... ok
+test_rows_round_trip_across_shards (test_reindex.StoreTest.test_rows_round_trip_across_shards) ... ok
+test_empty_body (test_reindex.TransformTest.test_empty_body) ... ok
+test_golden_row (test_reindex.TransformTest.test_golden_row) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 10.532s
+
+OK
+[1]-  Exit 75                 ./jobs reindex > var/build.log 2>&1
+[2]+  Done                    ./jobs test > /tmp/reindex-tests.log 2>&1
+checkpoint : {'last_id': 572, 'docs': 333, 'complete': False, 'shards': {'shard-00000.jsonl': 256239}}
+source     : 5739 live docs
+index      : 333 rows, 333 unique ids (5.8% of source)
+4
+[?2004hroot@1988364556ea:/app# cat > /tmp/finish-reindex.sh <<'EOF'
+[?2004l[?2004h> #!/bin/bash
+[?2004l[?2004h> cd /app
+[?2004l[?2004h> while true; do
+[?2004l[?2004h>   python3 - <<'PY'
+[?2004l[?2004h> import json, sys
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('var/checkpoint.json')
+[?2004l[?2004h> sys.exit(0 if p.exists() and json.loads(p.read_text()).get('complete') else 1)
+[?2004l[?2004h> PY
+[?2004l[?2004h>   if [ "$?" -eq 0 ]; then exit 0; fi
+[?2004l[?2004h>   ./jobs reindex
+[?2004l[?2004h>   rc=$?
+[?2004l[?2004h>   if [ "$rc" -ne 0 ] && [ "$rc" -ne 75 ] && [ "$rc" -ne 73 ]; then exit "$rc"; fi
+[?2004l[?2004h>   if [ "$rc" -eq 73 ]; then sleep 1; fi
+[?2004l[?2004h> done
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@1988364556ea:/app# bash /tmp/finish-reindex.sh >> var/build.log 2>&1 & echo "build loop pid=$!"
+[?2004l[1] 293
+build loop pid=293
+[?2004hroot@1988364556ea:/app# cat reindex/checkpoint.py reindex/store.py
+[?2004l"""Reindex progress checkpoint (var/checkpoint.json)."""
+import json
+import logging
+import os
+import tempfile
+from pathlib import Path
+
+from reindex.durable import sync_directory
+
+log = logging.getLogger("reindex.checkpoint")
+
+
+def fresh_state():
+    # last_id: id of the last document handled; docs: documents indexed so far
+    return {"last_id": 0, "docs": 0, "complete": False}
+
+
+class Checkpoint:
+    def __init__(self, path):
+        self.path = Path(path)
+
+    def load(self):
+        try:
+            data = json.loads(self.path.read_text())
+        except FileNotFoundError:
+            return fresh_state()
+        except ValueError:
+            log.warning("checkpoint %s unreadable, starting over", self.path)
+            return fresh_state()
+        state = fresh_state()
+        state.update(data)
+        return state
+
+    def save(self, state):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        # A crash leaves either the old checkpoint or the new one, never half JSON.
+        fd, temporary = tempfile.mkstemp(prefix=self.path.name + ".", suffix=".tmp",
+                                         dir=self.path.parent)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump(state, fh)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(temporary, self.path)
+            sync_directory(self.path.parent)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+
+    def clear(self):
+        self.path.unlink(missing_ok=True)
+"""Index storage: JSON-lines shards under var/index/.
+
+Each line is one index row (see reindex.transform).  The search service loads every
+`shard-*.jsonl` file in the directory; shard boundaries carry no meaning.  Rows are
+buffered and written out in blocks (one write + fsync per block) because the index
+volume is network storage in production and small appends are slow there.
+"""
+import json
+import os
+from pathlib import Path
+
+from reindex.durable import sync_directory
+
+SHARD_ROWS = 1000      # rows per shard file before rotating
+BUFFER_ROWS = 200      # rows held in memory before a block write
+
+
+def shard_paths(index_dir):
+    return sorted(Path(index_dir).glob("shard-*.jsonl"))
+
+
+def iter_rows(index_dir):
+    for path in shard_paths(index_dir):
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                if line.strip():
+                    yield json.loads(line)
+
+
+class ShardWriter:
+    def __init__(self, index_dir, shard_rows=SHARD_ROWS, buffer_rows=BUFFER_ROWS):
+        self.index_dir = Path(index_dir)
+        self.index_dir.mkdir(parents=True, exist_ok=True)
+        self.shard_rows = shard_rows
+        self.buffer_rows = buffer_rows
+        self._buffer = []
+        self._fh = None
+        self._rows_in_shard = 0
+        self._next_shard = self._first_free_shard()
+
+    def _first_free_shard(self):
+        numbers = [int(p.stem.split("-", 1)[1]) for p in shard_paths(self.index_dir)]
+        return max(numbers) + 1 if numbers else 0
+
+    @property
+    def pending(self):
+        return len(self._buffer)
+
+    def reset(self):
+        """Drop every shard (used when a reindex starts from scratch)."""
+        self._close_shard()
+        for path in shard_paths(self.index_dir):
+            path.unlink()
+        self._buffer.clear()
+        self._rows_in_shard = 0
+        self._next_shard = 0
+        sync_directory(self.index_dir)
+
+    def recover(self, offsets):
+        """Roll back everything not named by the last atomic checkpoint.
+
+        Validate before modifying anything: missing committed bytes are an error,
+        not a reason to advance or silently discard a checkpoint.
+        """
+        paths = {p.name: p for p in shard_paths(self.index_dir)}
+        for name, offset in offsets.items():
+            if name not in paths or not isinstance(offset, int) or offset < 0:
+                raise ValueError("invalid or missing committed shard: %s" % name)
+            if paths[name].stat().st_size < offset:
+                raise ValueError("committed shard is too short: %s" % name)
+        self._buffer.clear()
+        self._close_shard()
+        for name, path in paths.items():
+            if name not in offsets:
+                path.unlink()
+            elif path.stat().st_size != offsets[name]:
+                with open(path, "r+b") as fh:
+                    fh.truncate(offsets[name])
+                    fh.flush()
+                    os.fsync(fh.fileno())
+        sync_directory(self.index_dir)
+        self._next_shard = self._first_free_shard()
+        self._rows_in_shard = 0
+
+    def committed_offsets(self):
+        """Flush all rows before returning the durable byte positions to publish."""
+        self.flush()
+        sync_directory(self.index_dir)
+        return {p.name: p.stat().st_size for p in shard_paths(self.index_dir)}
+
+    def add(self, row):
+        self._buffer.append(row)
+        if len(self._buffer) >= self.buffer_rows:
+            self.flush()
+
+    def flush(self):
+        if not self._buffer:
+            return
+        for row in self._buffer:
+            if self._fh is None or self._rows_in_shard >= self.shard_rows:
+                self._rotate()
+            self._fh.write(json.dumps(row, sort_keys=True, separators=(",", ":"),
+                                      ensure_ascii=False) + "\n")
+            self._rows_in_shard += 1
+        self._fh.flush()
+        os.fsync(self._fh.fileno())
+        self._buffer.clear()
+
+    def _rotate(self):
+        self._close_shard()
+        path = self.index_dir / ("shard-%05d.jsonl" % self._next_shard)
+        self._fh = open(path, "a", encoding="utf-8")
+        self._next_shard += 1
+        self._rows_in_shard = 0
+
+    def _close_shard(self):
+        if self._fh is not None:
+            self._fh.flush()
+            os.fsync(self._fh.fileno())
+            self._fh.close()
+            self._fh = None
+
+    def close(self):
+        self.flush()
+        self._close_shard()
+
+    def abort(self):
+        """Release resources without promoting buffered rows to committed work."""
+        self._buffer.clear()
+        self._close_shard()
+[?2004hroot@1988364556ea:/app# cat > tests/test_durability.py <<'EOF'
+[?2004l[?2004h> """Crash-window and resume regressions; keep transforms identical to production."""
+[?2004l[?2004h> import json
+[?2004l[?2004h> import os
+[?2004l[?2004h> import signal
+[?2004l[?2004h> import sqlite3
+[?2004l[?2004h> import tempfile
+[?2004l[?2004h> import unittest
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> from unittest.mock import patch
+[?2004l[?2004h> 
+[?2004l[?2004h> from reindex.checkpoint import Checkpoint
+[?2004l[?2004h> from reindex.source import SCHEMA, Doc
+[?2004l[?2004h> from reindex.store import ShardWriter, iter_rows, shard_paths
+[?2004l[?2004h> from reindex.transform import transform_doc
+[?2004l[?2004h> from reindex.worker import parse_args, run
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> class DurabilityTest(unittest.TestCase):
+[?2004l[?2004h>     def setUp(self):
+[?2004l[?2004h>         self.temp = tempfile.TemporaryDirectory()
+[?2004l[?2004h>         self.addCleanup(self.temp.cleanup)
+[?2004l[?2004h>         self.root = Path(self.temp.name)
+[?2004l[?2004h>         self.db = self.root / "docs.db"
+[?2004l[?2004h>         self.index = self.root / "index"
+[?2004l[?2004h>         self.checkpoint = self.root / "checkpoint.json"
+[?2004l[?2004h>         self.docs = [Doc(i, "Café %d" % i, "naïve résumé", "fr")
+[?2004l[?2004h>                      for i in [1, 4, 8, 15, 23, 42, 99]]
+[?2004l[?2004h>         with sqlite3.connect(self.db) as conn:
+[?2004l[?2004h>             conn.executescript(SCHEMA)
+[?2004l[?2004h>             conn.executemany("INSERT INTO docs VALUES (?, ?, ?, ?, 0, 'now')", self.docs)
+[?2004l[?2004h>             conn.execute("INSERT INTO docs VALUES (10, 'deleted', '', 'en', 1, 'now')")
+[?2004l[?2004h>         self.args = parse_args(["--source", str(self.db), "--index-dir", str(self.index),
+[?2004l[?2004h>                                 "--checkpoint", str(self.checkpoint), "--batch-size", "2"])
+[?2004l[?2004h> 
+[?2004l[?2004h>     def assert_complete(self):
+[?2004l[?2004h>         self.assertEqual(run(self.args), 0)
+[?2004l[?2004h>         self.assertEqual(list(iter_rows(self.index)), [transform_doc(d) for d in self.docs])
+[?2004l[?2004h>         state = Checkpoint(self.checkpoint).load()
+[?2004l[?2004h>         self.assertTrue(state["complete"])
+[?2004l[?2004h>         self.assertEqual(state["docs"], len(self.docs))
+[?2004l[?2004h>         self.assertEqual(state["last_id"], self.docs[-1].id)
+[?2004l[?2004h>         self.assertEqual(state["shards"], {p.name: p.stat().st_size
+[?2004l[?2004h>                                           for p in shard_paths(self.index)})
+[?2004l[?2004h>         before = {p.name: p.read_bytes() for p in shard_paths(self.index)}
+[?2004l[?2004h>         self.assertEqual(run(self.args), 0)
+[?2004l[?2004h>         self.assertEqual(before, {p.name: p.read_bytes() for p in shard_paths(self.index)})
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_crash_before_checkpoint_replays_only_uncommitted_rows(self):
+[?2004l[?2004h>         save = Checkpoint.save
+[?2004l[?2004h> 
+[?2004l[?2004h>         def crash(ckpt, state):
+[?2004l[?2004h>             if state["docs"] == 4:
+[?2004l[?2004h>                 raise SystemExit("crash after index flush, before checkpoint")
+[?2004l[?2004h>             save(ckpt, state)
+[?2004l[?2004h> 
+[?2004l[?2004h>         with patch.object(Checkpoint, "save", crash):
+[?2004l[?2004h>             with self.assertRaises(SystemExit):
+[?2004l[?2004h>                 run(self.args)
+[?2004l[?2004h>         self.assertEqual(Checkpoint(self.checkpoint).load()["docs"], 2)
+[?2004l[?2004h>         self.assertEqual(len(list(iter_rows(self.index))), 4)
+[?2004l[?2004h>         # Simulate a torn append and an entirely uncommitted rotated shard.
+[?2004l[?2004h>         with open(shard_paths(self.index)[-1], "ab") as fh:
+[?2004l[?2004h>             fh.write(b'{"id":')
+[?2004l[?2004h>         (self.index / "shard-99999.jsonl").write_bytes(b'{"id":')
+[?2004l[?2004h>         self.assert_complete()
+[?2004l[?2004h> 
+[?2004l       writer.add({"id": 1})
+        offsets = writer.committed_offsets()
+        writer.close()
+        path = shard_pat[?2004h>     def test_crash_after_checkpoint_does_not_replay_last_id(self):
+[?2004l[?2004h>         save = Checkpoint.save
+[?2004l[?2004h> 
+[?2004l[?2004h>         def crash(ckpt, state):
+[?2004l[?2004h>             save(ckpt, state)
+[?2004l[?2004h>             if state["docs"] == 4:
+[?2004l[?2004h>                 raise SystemExit("crash after checkpoint publication")
+[?2004l[?2004h> 
+[?2004l[?2004h>         with patch.object(Checkpoint, "save", crash):
+[?2004l[?2004h>             with self.assertRaises(SystemExit):
+[?2004l[?2004h>                 run(self.args)
+[?2004l[?2004h>         self.assertEqual(Checkpoint(self.checkpoint).load()["docs"], 4)
+[?2004l[?2004h>         self.assert_complete()
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_sigterm_during_transform_commits_current_document(self):
+[?2004l[?2004h>         calls = 0
+[?2004l[?2004h> 
+[?2004l[?2004h>         def stop(doc):
+[?2004l[?2004h>             nonlocal calls
+[?2004l[?2004h>             calls += 1
+[?2004l[?2004h>             row = transform_doc(doc)
+[?2004l[?2004h>             if calls == 3:
+[?2004l[?2004h>                 os.kill(os.getpid(), signal.SIGTERM)
+[?2004l[?2004h>             return row
+[?2004l[?2004h> 
+[?2004l[?2004h>         with patch("reindex.worker.transform_doc", stop):
+[?2004l[?2004h>             self.assertEqual(run(self.args), 75)
+[?2004l[?2004h>         self.assertEqual(Checkpoint(self.checkpoint).load()["docs"], 3)
+[?2004l[?2004h>         self.assertEqual(list(iter_rows(self.index)), [transform_doc(d) for d in self.docs[:3]])
+[?2004l[?2004h>         self.assert_complete()
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_signal_during_checkpoint_cannot_interrupt_commit(self):
+[?2004l[?2004h>         save = Checkpoint.save
+[?2004l[?2004h> 
+[?2004l[?2004h>         def stop(ckpt, state):
+[?2004l[?2004h>             if state["docs"] == 2:
+[?2004l[?2004h>                 os.kill(os.getpid(), signal.SIGTERM)
+[?2004l[?2004h>             save(ckpt, state)
+[?2004l[?2004h> 
+[?2004l[?2004h>         with patch.object(Checkpoint, "save", stop):
+[?2004l[?2004h>             self.assertEqual(run(self.args), 75)
+[?2004l[?2004h>         self.assertEqual(len(list(iter_rows(self.index))), 2)
+[?2004l[?2004h>         self.assertEqual(Checkpoint(self.checkpoint).load()["docs"], 2)
+[?2004l[?2004h>         self.assert_complete()
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_legacy_complete_checkpoint_is_rebuilt_not_trusted(self):
+[?2004l[?2004h>         self.index.mkdir()
+[?2004l[?2004h>         (self.index / "shard-00000.jsonl").write_text('{"id":1}\n{"id":1}\n')
+[?2004l[?2004h>         Checkpoint(self.checkpoint).save({"last_id": 99, "docs": 7, "complete": True})
+[?2004l[?2004h>         self.assert_complete()
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_no_checkpoint_discards_stale_shards(self):
+[?2004l[?2004h>         self.index.mkdir()
+[?2004l[?2004h>         (self.index / "shard-00000.jsonl").write_bytes(b'partial old row')
+[?2004l[?2004h>         self.assert_complete()
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_empty_source(self):
+[?2004l[?2004h>         with sqlite3.connect(self.db) as conn:
+[?2004l[?2004h>             conn.execute("DELETE FROM docs")
+[?2004l[?2004h>         self.docs = []
+[?2004l[?2004h>         self.assertEqual(run(self.args), 0)
+[?2004l[?2004h>         self.assertEqual(list(iter_rows(self.index)), [])
+[?2004l[?2004h>         self.assertEqual(Checkpoint(self.checkpoint).load()["docs"], 0)
+[?2004l[?2004h>         self.assertTrue(Checkpoint(self.checkpoint).load()["complete"])
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_atomic_checkpoint_failure_leaves_old_checkpoint(self):
+[?2004l[?2004h>         ckpt = Checkpoint(self.checkpoint)
+[?2004l[?2004h>         old = {"last_id": 1, "docs": 1, "complete": False, "shards": {}}
+[?2004l[?2004h>         ckpt.save(old)
+[?2004l[?2004h>         with patch("reindex.checkpoint.os.replace", side_effect=OSError("crash")):
+[?2004l[?2004h>             with self.assertRaises(OSError):
+[?2004l[?2004h>                 ckpt.save(dict(old, last_id=4, docs=2))
+[?2004l[?2004h>         self.assertEqual(ckpt.load(), old)
+[?2004l[?2004h>         self.assertEqual(list(self.root.glob("*.tmp")), [])
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_rotation_and_recovery_across_buffer_boundaries(self):
+[?2004l[?2004h>         writer = ShardWriter(self.index, shard_rows=2, buffer_rows=3)
+[?2004l[?2004h>         for i in range(5):
+[?2004l[?2004h>             writer.add({"id": i, "text": "Café"})
+[?2004l[?2004h>         offsets = writer.committed_offsets()
+[?2004l[?2004h>         self.assertEqual(len(offsets), 3)
+[?2004l[?2004h>         for i in range(5, 11):
+[?2004l[?2004h>             writer.add({"id": i})
+[?2004l[?2004h>         writer.close()
+[?2004l[?2004h>         with open(shard_paths(self.index)[-1], "ab") as fh:
+[?2004l[?2004h>             fh.write(b'{')
+[?2004l[?2004h>         writer = ShardWriter(self.index, shard_rows=2, buffer_rows=3)
+[?2004l[?2004h>         writer.recover(offsets)
+[?2004l[?2004h>         writer.recover(offsets)  # Recovery itself is restartable.
+[?2004l[?2004h>         self.assertEqual([r["id"] for r in iter_rows(self.index)], list(range(5)))
+[?2004l[?2004h>         writer.add({"id": 5})
+[?2004l[?2004h>         writer.close()
+[?2004l[?2004h>         self.assertEqual([r["id"] for r in iter_rows(self.index)], list(range(6)))
+[?2004l[?2004h> 
+[?2004l[?2004h>     def test_missing_committed_bytes_are_rejected(self):
+[?2004l[?2004h>         writer = ShardWriter(self.index)
+[?2004l[?2004h>         writer.add({"id": 1})
+[?2004l[?2004h>         offsets = writer.committed_offsets()
+[?2004l[?2004h>         writer.close()
+[?2004l[?2004h>         path = shard_paths(self.index)[0]
+[?2004l[?2004h>         path.write_bytes(b'')
+[?2004l[?2004h>         writer = ShardWriter(self.index)
+[?2004l[?2004h>         with self.assertRaisesRegex(ValueError, "too short"):
+[?2004l[?2004h>             writer.recover(offsets)
+[?2004l[?2004h>         writer.abort()
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@1988364556ea:/app# ./jobs test > /tmp/reindex-tests.log 2>&1 & echo "test pid=$!"
+[?2004l[2] 323
+test pid=323
+[?2004hroot@1988364556ea:/app# cat >> README.md <<'EOF'
+[?2004l[?2004h> 
+[?2004l[?2004h> ## Resume and crash recovery
+[?2004l[?2004h> 
+[?2004l[?2004h> The checkpoint's `last_id` is **inclusive**: it is the last committed live
+[?2004l[?2004h> source document. The source API's start ID is also inclusive, so resume reads
+[?2004l[?2004h> from `last_id + 1` (IDs need not be contiguous).
+[?2004l[?2004h> 
+[?2004l[?2004h> Each commit flushes and fsyncs all shard bytes, including shards closed during
+[?2004l[?2004h> rotation, then syncs the index directory. The checkpoint records the byte length
+[?2004l[?2004h> of every committed shard in `shards`. It is written to a temporary file, fsynced,
+[?2004l[?2004h> atomically renamed over the previous checkpoint, and its directory is synced.
+[?2004l[?2004h> On restart, recovery truncates uncommitted tails and removes uncommitted shards
+[?2004l[?2004h> before reading more source documents. Recovery is idempotent, including after a
+[?2004l[?2004h> kill during recovery. Missing committed bytes are reported as an error rather
+[?2004l[?2004h> than silently skipping source documents. Old checkpoints without byte offsets
+[?2004l[?2004h> cannot prove which rows survived and are rebuilt once.
+[?2004l[?2004h> 
+[?2004l[?2004h> SIGTERM, SIGINT and SIGHUP request a stop after the current document and commit;
+[?2004l[?2004h> the worker exits 75 when incomplete. SIGKILL can lose uncommitted work only: the
+[?2004l[?2004h> next run restores the last durable checkpoint. Supervisor budgets, cooldowns,
+[?2004l[?2004h> and row transformations are unchanged. Run `./jobs reindex` again after each
+[?2004l[?2004h> budget stop until `./jobs status` reports `complete: True`.
+[?2004l[?2004h> 
+[?2004l[?2004h> The build assumes the source corpus remains stable over the reindex. To build a
+[?2004l[?2004h> new snapshot after source changes, use `./jobs clean` and start a fresh reindex.
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@1988364556ea:/app# cat /tmp/reindex-tests.log; tail -10 var/build.log; ./jobs status
+[?2004lsupervise: reindex started pid=253 budget=10s grace=5s
+2026-11-22 16:11:10,683 reindex.worker INFO starting after id 0 (0/5739 docs done)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:11:20,668 reindex.worker INFO stopped safely: last_id=572 docs=333/5739
+supervise: reindex stopped after 10.1s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 8s ago, cooldown is 90s: starting in 82s
+checkpoint : {'last_id': 572, 'docs': 333, 'complete': False, 'shards': {'shard-00000.jsonl': 256239}}
+source     : 5739 live docs
+index      : 333 rows, 333 unique ids (5.8% of source)
+[?2004hroot@1988364556ea:/app# python3 - <<'PY'
+[?2004l[?2004h> p='reindex/worker.py'
+[?2004l[?2004h> s=open(p).read().replace('        for n, batch in enumerate(source.batches(start_id=state["last_id"] + 1,\n', '        start_id = state["last_id"] + 1 if state["docs"] else 0\n        for n, batch in enumerate(source.batches(start_id=start_id,\n')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> p='reindex/store.py'
+[?2004l[?2004h> s=open(p).read().replace('        self.index_dir.mkdir(parents=True, exist_ok=True)\n', '        self.index_dir.mkdir(parents=True, exist_ok=True)\n        sync_directory(self.index_dir.parent)\n')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> p='tests/test_durability.py'
+[?2004l[?2004h> s=open(p).read().replace('import json\n', '')
+[?2004l[?2004h> pos=s.index('    def test_empty_source(self):')
+[?2004l[?2004h> s=s[:pos]+'''    def test_live_id_zero_is_not_skipped(self):
+[?2004l[?2004h>         doc = Doc(0, "zero", "", "en")
+[?2004l[?2004h>         with sqlite3.connect(self.db) as conn:
+[?2004l[?2004h>             conn.execute("INSERT INTO docs VALUES (?, ?, ?, ?, 0, 'now')", doc)
+[?2004l[?2004h>         self.docs.insert(0, doc)
+[?2004l[?2004h>         self.assert_complete()
+[?2004l[?2004h> 
+[?2004l[?2004h> '''+s[pos:]
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[2]+  Done                    ./jobs test > /tmp/reindex-tests.log 2>&1
+[?2004hroot@1988364556ea:/app# cat /tmp/reindex-tests.log; tail -8 var/build.log; ./jobs history
+[?2004ltest_atomic_checkpoint_failure_leaves_old_checkpoint (test_durability.DurabilityTest.test_atomic_checkpoint_failure_leaves_old_checkpoint) ... ok
+test_crash_after_checkpoint_does_not_replay_last_id (test_durability.DurabilityTest.test_crash_after_checkpoint_does_not_replay_last_id) ... ok
+test_crash_before_checkpoint_replays_only_uncommitted_rows (test_durability.DurabilityTest.test_crash_before_checkpoint_replays_only_uncommitted_rows) ... ok
+test_empty_source (test_durability.DurabilityTest.test_empty_source) ... ok
+test_legacy_complete_checkpoint_is_rebuilt_not_trusted (test_durability.DurabilityTest.test_legacy_complete_checkpoint_is_rebuilt_not_trusted) ... legacy checkpoint has no durable offsets; rebuilding
+ok
+test_missing_committed_bytes_are_rejected (test_durability.DurabilityTest.test_missing_committed_bytes_are_rejected) ... ok
+test_no_checkpoint_discards_stale_shards (test_durability.DurabilityTest.test_no_checkpoint_discards_stale_shards) ... ok
+test_rotation_and_recovery_across_buffer_boundaries (test_durability.DurabilityTest.test_rotation_and_recovery_across_buffer_boundaries) ... ok
+test_signal_during_checkpoint_cannot_interrupt_commit (test_durability.DurabilityTest.test_signal_during_checkpoint_cannot_interrupt_commit) ... ok
+test_sigterm_during_transform_commits_current_document (test_durability.DurabilityTest.test_sigterm_during_transform_commits_current_document) ... ok
+test_stop_and_resume_gives_complete_index (test_reindex.ResumeTest.test_stop_and_resume_gives_complete_index) ... ok
+test_rows_round_trip_across_shards (test_reindex.StoreTest.test_rows_round_trip_across_shards) ... ok
+test_empty_body (test_reindex.TransformTest.test_empty_body) ... ok
+test_golden_row (test_reindex.TransformTest.test_golden_row) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 5.442s
+
+OK
+supervise: reindex started pid=253 budget=10s grace=5s
+2026-11-22 16:11:10,683 reindex.worker INFO starting after id 0 (0/5739 docs done)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:11:20,668 reindex.worker INFO stopped safely: last_id=572 docs=333/5739
+supervise: reindex stopped after 10.1s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 8s ago, cooldown is 90s: starting in 82s
+2026-11-22T16:11:10  stopped     rc=75      10.1s  budget=10s
+[?2004hroot@1988364556ea:/app# python3 - <<'PY'
+[?2004l[?2004h> p='tests/test_durability.py'
+[?2004l[?2004h> s=open(p).read().replace('import signal\n', 'import signal\nimport subprocess\nimport sys\nimport time\n')
+[?2004l[?2004h> pos=s.index('    def test_empty_source(self):')
+[?2004l[?2004h> s=s[:pos]+'''    def test_sigkill_after_durable_prefix_resumes(self):
+[?2004l[?2004h>         # Slow only the child transform so the parent can kill between commits.
+[?2004l[?2004h>         script = """
+[?2004l[?2004h> import sys, time
+[?2004l[?2004h> from reindex import worker
+[?2004l[?2004h> original = worker.transform_doc
+[?2004l[?2004h> def slow(doc):
+[?2004l[?2004h>     row = original(doc)
+[?2004l[?2004h>     time.sleep(0.06)
+[?2004l[?2004h>     return row
+[?2004l[?2004h> worker.transform_doc = slow
+[?2004l[?2004h> worker.main(sys.argv[1:])
+[?2004l[?2004h> """
+[?2004l[?2004h>         argv = [sys.executable, "-c", script, "--source", str(self.db),
+[?2004l[?2004h>                 "--index-dir", str(self.index), "--checkpoint", str(self.checkpoint),
+[?2004l[?2004h>                 "--batch-size", "2"]
+[?2004l[?2004h>         proc = subprocess.Popen(argv, stderr=subprocess.DEVNULL)
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             deadline = time.monotonic() + 10
+[?2004l[?2004h>             while time.monotonic() < deadline:
+[?2004l[?2004h>                 if Checkpoint(self.checkpoint).load()["docs"] >= 2:
+[?2004l[?2004h>                     break
+[?2004l[?2004h>                 time.sleep(0.01)
+[?2004l[?2004h>             else:
+[?2004l[?2004h>                 self.fail("child did not commit progress")
+[?2004l[?2004h>             proc.kill()
+[?2004l[?2004h>             proc.wait(timeout=5)
+[?2004l[?2004h>         finally:
+[?2004l[?2004h>             if proc.poll() is None:
+[?2004l[?2004h>                 proc.kill()
+[?2004l[?2004h>                 proc.wait(timeout=5)
+[?2004l[?2004h>         state = Checkpoint(self.checkpoint).load()
+[?2004l[?2004h>         self.assertGreaterEqual(state["docs"], 2)
+[?2004l[?2004h>         self.assertFalse(state["complete"])
+[?2004l[?2004h>         self.assert_complete()
+[?2004l[?2004h> 
+[?2004l[?2004h> '''+s[pos:]
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@1988364556ea:/app# ./jobs test > /tmp/reindex-tests.log 2>&1 & echo "tests pid=$!"
+[?2004l[2] 368
+tests pid=368
+[?2004hroot@1988364556ea:/app# ps -eo pid,ppid,etime,args | grep -E 'reindex|supervise|finish' | grep -v grep; date; tail -12 var/build.log
+[?2004l    293      58       00:56 bash /tmp/finish-reindex.sh
+    295     293       00:56 python3 ops/supervise.py run reindex
+Sun Nov 22 16:12:24 UTC 2026
+supervise: reindex started pid=253 budget=10s grace=5s
+2026-11-22 16:11:10,683 reindex.worker INFO starting after id 0 (0/5739 docs done)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:11:20,668 reindex.worker INFO stopped safely: last_id=572 docs=333/5739
+supervise: reindex stopped after 10.1s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 8s ago, cooldown is 90s: starting in 82s
+[?2004hroot@1988364556ea:/app# cat /tmp/reindex-tests.log; sed -n '48,165p' reindex/worker.py; date
+[?2004ltest_atomic_checkpoint_failure_leaves_old_checkpoint (test_durability.DurabilityTest.test_atomic_checkpoint_failure_leaves_old_checkpoint) ... ok
+test_crash_after_checkpoint_does_not_replay_last_id (test_durability.DurabilityTest.test_crash_after_checkpoint_does_not_replay_last_id) ... ok
+test_crash_before_checkpoint_replays_only_uncommitted_rows (test_durability.DurabilityTest.test_crash_before_checkpoint_replays_only_uncommitted_rows) ... ok
+test_empty_source (test_durability.DurabilityTest.test_empty_source) ... ok
+test_legacy_complete_checkpoint_is_rebuilt_not_trusted (test_durability.DurabilityTest.test_legacy_complete_checkpoint_is_rebuilt_not_trusted) ... legacy checkpoint has no durable offsets; rebuilding
+ok
+test_live_id_zero_is_not_skipped (test_durability.DurabilityTest.test_live_id_zero_is_not_skipped) ... ok
+test_missing_committed_bytes_are_rejected (test_durability.DurabilityTest.test_missing_committed_bytes_are_rejected) ... ok
+test_no_checkpoint_discards_stale_shards (test_durability.DurabilityTest.test_no_checkpoint_discards_stale_shards) ... ok
+test_rotation_and_recovery_across_buffer_boundaries (test_durability.DurabilityTest.test_rotation_and_recovery_across_buffer_boundaries) ... ok
+test_sigkill_after_durable_prefix_resumes (test_durability.DurabilityTest.test_sigkill_after_durable_prefix_resumes) ... ok
+test_signal_during_checkpoint_cannot_interrupt_commit (test_durability.DurabilityTest.test_signal_during_checkpoint_cannot_interrupt_commit) ... ok
+test_sigterm_during_transform_commits_current_document (test_durability.DurabilityTest.test_sigterm_during_transform_commits_current_document) ... ok
+test_stop_and_resume_gives_complete_index (test_reindex.ResumeTest.test_stop_and_resume_gives_complete_index) ... ok
+test_rows_round_trip_across_shards (test_reindex.StoreTest.test_rows_round_trip_across_shards) ... ok
+test_empty_body (test_reindex.TransformTest.test_empty_body) ... ok
+test_golden_row (test_reindex.TransformTest.test_golden_row) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 5.701s
+
+OK
+[2]+  Done                    ./jobs test > /tmp/reindex-tests.log 2>&1
+          % (len(rows), unique, 100.0 * unique / max(total, 1)))
+    return 0
+
+
+def run(args):
+    if args.batch_size <= 0:
+        raise ValueError("batch size must be positive")
+    stopping = False
+
+    def request_stop(signum, frame):
+        nonlocal stopping
+        stopping = True
+
+    handlers = {sig: signal.signal(sig, request_stop)
+                for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
+    source = store = None
+    try:
+        ckpt = Checkpoint(args.checkpoint)
+        state = ckpt.load()
+        # Old checkpoints could get ahead of the index. There is no trustworthy
+        # durable boundary in that format, so migrate by rebuilding, not guessing.
+        if "shards" not in state:
+            if state["docs"] or state["complete"]:
+                log.warning("legacy checkpoint has no durable offsets; rebuilding")
+            state = {"last_id": 0, "docs": 0, "complete": False, "shards": {}}
+            ckpt.save(state)
+        store = ShardWriter(args.index_dir)
+        store.recover(state["shards"])
+        if state["complete"]:
+            log.info("index already complete (%d docs)", state["docs"])
+            return 0
+        source = Source(args.source)
+        total = source.count()
+        started = time.monotonic()
+        initial_docs = state["docs"]
+        log.info("starting after id %d (%d/%d docs done)", state["last_id"], state["docs"], total)
+
+        # Source.batches is inclusive; last_id is the last *committed* document.
+        start_id = state["last_id"] + 1 if state["docs"] else 0
+        for n, batch in enumerate(source.batches(start_id=start_id,
+                                                size=args.batch_size), 1):
+            last_id, count = state["last_id"], 0
+            for doc in batch:
+                if stopping:
+                    break
+                store.add(transform_doc(doc))
+                last_id = doc.id
+                count += 1
+            if count:
+                # All shard data (including rotated shards and directory entries)
+                # is durable before publishing the corresponding checkpoint.
+                offsets = store.committed_offsets()
+                state = dict(state, last_id=last_id, docs=state["docs"] + count,
+                             shards=offsets)
+                ckpt.save(state)
+            if stopping:
+                log.info("stopped safely: last_id=%d docs=%d/%d",
+                         state["last_id"], state["docs"], total)
+                return 75
+            if n % 20 == 0:
+                rate = (state["docs"] - initial_docs) / (time.monotonic() - started)
+                log.info("progress: last_id=%d docs=%d/%d (%.0f docs/s)",
+                         state["last_id"], state["docs"], total, rate)
+
+        state = dict(state, complete=True, shards=store.committed_offsets())
+        ckpt.save(state)
+        log.info("reindex complete: %d docs", state["docs"])
+        return 0
+    finally:
+        try:
+            if store is not None:
+                store.abort()
+            if source is not None:
+                source.close()
+        finally:
+            for sig, handler in handlers.items():
+                signal.signal(sig, handler)
+
+
+def main(argv=None):
+    logging.basicConfig(level=logging.INFO, stream=sys.stderr,
+                        format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    if args.status:
+        return show_status(args)
+    return run(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+Sun Nov 22 16:12:44 UTC 2026
+[?2004hroot@1988364556ea:/app# python3 - <<'PY'
+[?2004l[?2004h> p='tests/test_durability.py'
+[?2004l[?2004h> s=open(p).read().replace('from reindex.checkpoint import Checkpoint\n', 'from ops import supervise\nfrom reindex.checkpoint import Checkpoint\n')
+[?2004l[?2004h> pos=s.index('    def test_empty_source(self):')
+[?2004l[?2004h> s=s[:pos]+'''    def test_supervisor_budget_stops_and_resumes(self):
+[?2004l[?2004h>         script = """
+[?2004l[?2004h> import sys, time
+[?2004l[?2004h> from reindex import worker
+[?2004l[?2004h> original = worker.transform_doc
+[?2004l[?2004h> def slow(doc):
+[?2004l[?2004h>     row = original(doc)
+[?2004l[?2004h>     time.sleep(0.06)
+[?2004l[?2004h>     return row
+[?2004l[?2004h> worker.transform_doc = slow
+[?2004l[?2004h> sys.exit(worker.main(sys.argv[1:]))
+[?2004l[?2004h> """
+[?2004l[?2004h>         command = [sys.executable, "-c", script, "--source", str(self.db),
+[?2004l[?2004h>                    "--index-dir", str(self.index), "--checkpoint", str(self.checkpoint),
+[?2004l[?2004h>                    "--batch-size", "2"]
+[?2004l[?2004h>         with patch.object(supervise, "JOBS", {"reindex": command}), \\
+[?2004l[?2004h>              patch.object(supervise, "RUN_DIR", self.root / "run"), \\
+[?2004l[?2004h>              patch.object(supervise, "LOG_FILE", self.root / "runs.jsonl"), \\
+[?2004l[?2004h>              patch.object(supervise, "load_limits", return_value=(0.25, 2, 0)):
+[?2004l[?2004h>             self.assertEqual(supervise.run("reindex"), 75)
+[?2004l[?2004h>         state = Checkpoint(self.checkpoint).load()
+[?2004l[?2004h>         self.assertGreater(state["docs"], 0)
+[?2004l[?2004h>         self.assertFalse(state["complete"])
+[?2004l[?2004h>         self.assertEqual(len(list(iter_rows(self.index))), state["docs"])
+[?2004l[?2004h>         self.assert_complete()
+[?2004l[?2004h> 
+[?2004l[?2004h> '''+s[pos:]
+[?2004l[?2004h> # The supervisor intentionally installs its own handlers; restore them in this test.
+[?2004l[?2004h> s=s.replace('        with patch.object(supervise, "JOBS", {"reindex": command}),', '        handlers = {sig: signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGHUP)}\n        for sig, handler in handlers.items():\n            self.addCleanup(signal.signal, sig, handler)\n        with patch.object(supervise, "JOBS", {"reindex": command}),')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@1988364556ea:/app# ./jobs test > /tmp/reindex-tests.log 2>&1 &
+[?2004l[2] 412
+[?2004hroot@1988364556ea:/app# sleep 35; tail -15 var/build.log; ./jobs status; tail -10 /tmp/reindex-tests.log
+[?2004l[2]+  Done                    ./jobs test > /tmp/reindex-tests.log 2>&1
+supervise: reindex started pid=253 budget=10s grace=5s
+2026-11-22 16:11:10,683 reindex.worker INFO starting after id 0 (0/5739 docs done)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:11:20,668 reindex.worker INFO stopped safely: last_id=572 docs=333/5739
+supervise: reindex stopped after 10.1s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 8s ago, cooldown is 90s: starting in 82s
+supervise: reindex started pid=425 budget=10s grace=5s
+2026-11-22 16:12:50,775 reindex.worker INFO starting after id 572 (333/5739 docs done)
+2026-11-22 16:12:57,621 reindex.worker INFO progress: last_id=1381 docs=833/5739 (73 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:13:00,738 reindex.worker INFO stopped safely: last_id=1761 docs=1068/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+checkpoint : {'last_id': 1761, 'docs': 1068, 'complete': False, 'shards': {'shard-00000.jsonl': 256239, 'shard-00001.jsonl': 568209}}
+source     : 5739 live docs
+index      : 1068 rows, 1068 unique ids (18.6% of source)
+ok
+test_stop_and_resume_gives_complete_index (test_reindex.ResumeTest.test_stop_and_resume_gives_complete_index) ... ok
+test_rows_round_trip_across_shards (test_reindex.StoreTest.test_rows_round_trip_across_shards) ... ok
+test_empty_body (test_reindex.TransformTest.test_empty_body) ... ok
+test_golden_row (test_reindex.TransformTest.test_golden_row) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 6.040s
+
+OK
+[?2004hroot@1988364556ea:/app# cat > /tmp/verify-reindex.py <<'EOF'
+[?2004l[?2004h> import json
+[?2004l[?2004h> import sys
+[?2004l[?2004h> from concurrent.futures import ProcessPoolExecutor
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> sys.path.insert(0, '/app')
+[?2004l[?2004h> from reindex.source import Source
+[?2004l[?2004h> from reindex.store import iter_rows, shard_paths
+[?2004l[?2004h> from reindex.transform import transform_doc
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def main():
+[?2004l[?2004h>     source = Source('/app/data/docs.db')
+[?2004l[?2004h>     docs = [doc for batch in source.batches(0, 200) for doc in batch]
+[?2004l[?2004h>     source.close()
+[?2004l[?2004h>     with ProcessPoolExecutor(max_workers=3) as pool:
+[?2004l[?2004h>         rows = list(pool.map(transform_doc, docs, chunksize=20))
+[?2004l[?2004h>     Path('/tmp/expected-index.json').write_text(json.dumps(rows, ensure_ascii=False))
+[?2004l[?2004h>     print('Computed exact expected rows for %d live documents' % len(rows), flush=True)
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> if __name__ == '__main__':
+[?2004l[?2004h>     main()
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@1988364556ea:/app# python3 /tmp/verify-reindex.py > /tmp/verify-reindex.log 2>&1 & echo "expected-row verifier pid=$!"
+[?2004l[2] 458
+expected-row verifier pid=458
+[?2004hroot@1988364556ea:/app# sed -n '130,235p' tests/test_durability.py; ./jobs history; ls -lh var/index; cat ops/limits.json
+[?2004l        self.docs.insert(0, doc)
+        self.assert_complete()
+
+    def test_sigkill_after_durable_prefix_resumes(self):
+        # Slow only the child transform so the parent can kill between commits.
+        script = """
+import sys, time
+from reindex import worker
+original = worker.transform_doc
+def slow(doc):
+    row = original(doc)
+    time.sleep(0.06)
+    return row
+worker.transform_doc = slow
+worker.main(sys.argv[1:])
+"""
+        argv = [sys.executable, "-c", script, "--source", str(self.db),
+                "--index-dir", str(self.index), "--checkpoint", str(self.checkpoint),
+                "--batch-size", "2"]
+        proc = subprocess.Popen(argv, stderr=subprocess.DEVNULL)
+        try:
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                if Checkpoint(self.checkpoint).load()["docs"] >= 2:
+                    break
+                time.sleep(0.01)
+            else:
+                self.fail("child did not commit progress")
+            proc.kill()
+            proc.wait(timeout=5)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=5)
+        state = Checkpoint(self.checkpoint).load()
+        self.assertGreaterEqual(state["docs"], 2)
+        self.assertFalse(state["complete"])
+        self.assert_complete()
+
+    def test_supervisor_budget_stops_and_resumes(self):
+        script = """
+import sys, time
+from reindex import worker
+original = worker.transform_doc
+def slow(doc):
+    row = original(doc)
+    time.sleep(0.06)
+    return row
+worker.transform_doc = slow
+sys.exit(worker.main(sys.argv[1:]))
+"""
+        command = [sys.executable, "-c", script, "--source", str(self.db),
+                   "--index-dir", str(self.index), "--checkpoint", str(self.checkpoint),
+                   "--batch-size", "2"]
+        handlers = {sig: signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGHUP)}
+        for sig, handler in handlers.items():
+            self.addCleanup(signal.signal, sig, handler)
+        with patch.object(supervise, "JOBS", {"reindex": command}), \
+             patch.object(supervise, "RUN_DIR", self.root / "run"), \
+             patch.object(supervise, "LOG_FILE", self.root / "runs.jsonl"), \
+             patch.object(supervise, "load_limits", return_value=(0.25, 2, 0)):
+            self.assertEqual(supervise.run("reindex"), 75)
+        state = Checkpoint(self.checkpoint).load()
+        self.assertGreater(state["docs"], 0)
+        self.assertFalse(state["complete"])
+        self.assertEqual(len(list(iter_rows(self.index))), state["docs"])
+        self.assert_complete()
+
+    def test_empty_source(self):
+        with sqlite3.connect(self.db) as conn:
+            conn.execute("DELETE FROM docs")
+        self.docs = []
+        self.assertEqual(run(self.args), 0)
+        self.assertEqual(list(iter_rows(self.index)), [])
+        self.assertEqual(Checkpoint(self.checkpoint).load()["docs"], 0)
+        self.assertTrue(Checkpoint(self.checkpoint).load()["complete"])
+
+    def test_atomic_checkpoint_failure_leaves_old_checkpoint(self):
+        ckpt = Checkpoint(self.checkpoint)
+        old = {"last_id": 1, "docs": 1, "complete": False, "shards": {}}
+        ckpt.save(old)
+        with patch("reindex.checkpoint.os.replace", side_effect=OSError("crash")):
+            with self.assertRaises(OSError):
+                ckpt.save(dict(old, last_id=4, docs=2))
+        self.assertEqual(ckpt.load(), old)
+        self.assertEqual(list(self.root.glob("*.tmp")), [])
+
+    def test_rotation_and_recovery_across_buffer_boundaries(self):
+        writer = ShardWriter(self.index, shard_rows=2, buffer_rows=3)
+        for i in range(5):
+            writer.add({"id": i, "text": "Café"})
+        offsets = writer.committed_offsets()
+        self.assertEqual(len(offsets), 3)
+        for i in range(5, 11):
+            writer.add({"id": i})
+        writer.close()
+        with open(shard_paths(self.index)[-1], "ab") as fh:
+            fh.write(b'{')
+        writer = ShardWriter(self.index, shard_rows=2, buffer_rows=3)
+        writer.recover(offsets)
+        writer.recover(offsets)  # Recovery itself is restartable.
+        self.assertEqual([r["id"] for r in iter_rows(self.index)], list(range(5)))
+        writer.add({"id": 5})
+        writer.close()
+        self.assertEqual([r["id"] for r in iter_rows(self.index)], list(range(6)))
+
+2026-11-22T16:11:10  stopped     rc=75      10.1s  budget=10s
+2026-11-22T16:12:50  stopped     rc=75      10.0s  budget=10s
+total 812K
+-rw-rw-rw- 1 root root 251K Nov 22 16:11 shard-00000.jsonl
+-rw-rw-rw- 1 root root 555K Nov 22 16:13 shard-00001.jsonl
+{
+  "jobs": {
+    "reindex": {
+      "budget_seconds": 10,
+      "grace_seconds": 5,
+      "cooldown_seconds": 90
+    }
+  }
+}
+[?2004hroot@1988364556ea:/app# sleep 55; tail -10 var/build.log; cat /tmp/verify-reindex.log
+[?2004lsupervise: reindex started pid=425 budget=10s grace=5s
+2026-11-22 16:12:50,775 reindex.worker INFO starting after id 572 (333/5739 docs done)
+2026-11-22 16:12:57,621 reindex.worker INFO progress: last_id=1381 docs=833/5739 (73 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:13:00,738 reindex.worker INFO stopped safely: last_id=1761 docs=1068/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=481 budget=10s grace=5s
+2026-11-22 16:14:30,873 reindex.worker INFO starting after id 1761 (1068/5739 docs done)
+[?2004hroot@1988364556ea:/app# sleep 12; tail -13 var/build.log; ./jobs status; cat /tmp/verify-reindex.log; ps -eo pid,ppid,etime,args | grep -E 'verify-reindex|supervise|finish-reindex' | grep -v grep
+[?2004l[2]+  Done                    python3 /tmp/verify-reindex.py > /tmp/verify-reindex.log 2>&1
+2026-11-22 16:12:57,621 reindex.worker INFO progress: last_id=1381 docs=833/5739 (73 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:13:00,738 reindex.worker INFO stopped safely: last_id=1761 docs=1068/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=481 budget=10s grace=5s
+2026-11-22 16:14:30,873 reindex.worker INFO starting after id 1761 (1068/5739 docs done)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:14:40,783 reindex.worker INFO stopped safely: last_id=2020 docs=1237/5739
+supervise: reindex stopped after 10.1s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+checkpoint : {'last_id': 2020, 'docs': 1237, 'complete': False, 'shards': {'shard-00000.jsonl': 256239, 'shard-00001.jsonl': 568209, 'shard-00002.jsonl': 130866}}
+source     : 5739 live docs
+index      : 1237 rows, 1237 unique ids (21.6% of source)
+Computed exact expected rows for 5739 live documents
+    293      58       03:36 bash /tmp/finish-reindex.sh
+    503     293       00:23 python3 ops/supervise.py run reindex
+[?2004hroot@1988364556ea:/app# python3 -m compileall -q reindex tests; grep -nE '^(    def test_|Ran |OK|FAILED|supervise:)' /tmp/reindex-tests.log; du -h data/docs.db var/index
+[?2004l16:supervise: budget of 0.25s reached, sending SIGTERM
+18:supervise: reindex stopped after 0.3s (rc=75)
+19:supervise: reindex incomplete; run it again to continue
+30:Ran 17 tests in 6.040s
+32:OK
+3.0M	data/docs.db
+944K	var/index
+[?2004hroot@1988364556ea:/app# cat > /tmp/check-index-prefix.py <<'EOF'
+[?2004l[?2004h> import json
+[?2004l[?2004h> import sys
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> sys.path.insert(0, '/app')
+[?2004l[?2004h> from reindex.store import iter_rows, shard_paths
+[?2004l[?2004h> state = json.loads(Path('/app/var/checkpoint.json').read_text())
+[?2004l[?2004h> expected = json.loads(Path('/tmp/expected-index.json').read_text())
+[?2004l[?2004h> actual = list(iter_rows('/app/var/index'))
+[?2004l[?2004h> assert len(actual) == state['docs'], (len(actual), state['docs'])
+[?2004l[?2004h> assert len({r['id'] for r in actual}) == len(actual), 'duplicates'
+[?2004l[?2004h> assert actual == expected[:state['docs']], 'row contents or order differ'
+[?2004l[?2004h> assert state['shards'] == {p.name: p.stat().st_size for p in shard_paths('/app/var/index')}
+[?2004l[?2004h> if actual:
+[?2004l[?2004h>     assert state['last_id'] == actual[-1]['id']
+[?2004l[?2004h> if state['complete']:
+[?2004l[?2004h>     assert actual == expected, 'incomplete source coverage'
+[?2004l[?2004h> print('Verified %d/%d exact rows; complete=%s' % (len(actual), len(expected), state['complete']))
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@1988364556ea:/app# python3 /tmp/check-index-prefix.py
+[?2004lsleep 55; tail -9 var/build.log; date
+Verified 1237/5739 exact rows; complete=False
+[?2004hroot@1988364556ea:/app# sleep 55; tail -9 var/build.log; date
+[?2004lsupervise: reindex started pid=481 budget=10s grace=5s
+2026-11-22 16:14:30,873 reindex.worker INFO starting after id 1761 (1068/5739 docs done)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:14:40,783 reindex.worker INFO stopped safely: last_id=2020 docs=1237/5739
+supervise: reindex stopped after 10.1s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=556 budget=10s grace=5s
+2026-11-22 16:16:10,934 reindex.worker INFO starting after id 2020 (1237/5739 docs done)
+Sun Nov 22 16:16:15 UTC 2026
+[?2004hroot@1988364556ea:/app# sleep 50; tail -11 var/build.log; python3 /tmp/check-index-prefix.py
+[?2004lsupervise: reindex stopped after 10.1s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=556 budget=10s grace=5s
+2026-11-22 16:16:10,934 reindex.worker INFO starting after id 2020 (1237/5739 docs done)
+2026-11-22 16:16:17,703 reindex.worker INFO progress: last_id=2815 docs=1737/5739 (74 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:16:20,914 reindex.worker INFO stopped safely: last_id=3246 docs=1983/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+Verified 1983/5739 exact rows; complete=False
+[?2004hroot@1988364556ea:/app# sleep 55; tail -10 var/build.log; date
+[?2004lsupervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=596 budget=10s grace=5s
+2026-11-22 16:17:50,968 reindex.worker INFO starting after id 3246 (1983/5739 docs done)
+2026-11-22 16:17:57,633 reindex.worker INFO progress: last_id=4086 docs=2483/5739 (75 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:18:00,946 reindex.worker INFO stopped safely: last_id=4495 docs=2728/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+Sun Nov 22 16:18:15 UTC 2026
+[?2004hroot@1988364556ea:/app# sleep 55; tail -12 var/build.log; python3 /tmp/check-index-prefix.py; ./jobs history
+[?2004l2026-11-22 16:16:20,914 reindex.worker INFO stopped safely: last_id=3246 docs=1983/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=596 budget=10s grace=5s
+2026-11-22 16:17:50,968 reindex.worker INFO starting after id 3246 (1983/5739 docs done)
+2026-11-22 16:17:57,633 reindex.worker INFO progress: last_id=4086 docs=2483/5739 (75 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:18:00,946 reindex.worker INFO stopped safely: last_id=4495 docs=2728/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+Verified 2728/5739 exact rows; complete=False
+2026-11-22T16:11:10  stopped     rc=75      10.1s  budget=10s
+2026-11-22T16:12:50  stopped     rc=75      10.0s  budget=10s
+2026-11-22T16:14:30  stopped     rc=75      10.1s  budget=10s
+2026-11-22T16:16:10  stopped     rc=75      10.0s  budget=10s
+2026-11-22T16:17:50  stopped     rc=75      10.0s  budget=10s
+[?2004hroot@1988364556ea:/app# sleep 55; tail -11 var/build.log; python3 /tmp/check-index-prefix.py
+[?2004lsupervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=632 budget=10s grace=5s
+2026-11-22 16:19:31,004 reindex.worker INFO starting after id 4495 (2728/5739 docs done)
+2026-11-22 16:19:37,636 reindex.worker INFO progress: last_id=5317 docs=3228/5739 (75 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:19:40,965 reindex.worker INFO stopped safely: last_id=5760 docs=3478/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+Verified 3478/5739 exact rows; complete=False
+[?2004hroot@1988364556ea:/app# ./jobs test > /tmp/reindex-final-tests.log 2>&1; tail -7 /tmp/reindex-final-tests.log
+[?2004ltest_empty_body (test_reindex.TransformTest.test_empty_body) ... ok
+test_golden_row (test_reindex.TransformTest.test_golden_row) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 6.098s
+
+OK
+[?2004hroot@1988364556ea:/app# sleep 55; tail -10 var/build.log; date
+[?2004lsupervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=659 budget=10s grace=5s
+2026-11-22 16:21:11,019 reindex.worker INFO starting after id 5760 (3478/5739 docs done)
+2026-11-22 16:21:17,585 reindex.worker INFO progress: last_id=6633 docs=3978/5739 (76 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:21:20,993 reindex.worker INFO stopped safely: last_id=7061 docs=4230/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+Sun Nov 22 16:21:30 UTC 2026
+[?2004hroot@1988364556ea:/app# python3 /tmp/check-index-prefix.py; sleep 55; tail -8 var/build.log
+[?2004lVerified 4230/5739 exact rows; complete=False
+supervise: reindex started pid=659 budget=10s grace=5s
+2026-11-22 16:21:11,019 reindex.worker INFO starting after id 5760 (3478/5739 docs done)
+2026-11-22 16:21:17,585 reindex.worker INFO progress: last_id=6633 docs=3978/5739 (76 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:21:20,993 reindex.worker INFO stopped safely: last_id=7061 docs=4230/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+[?2004hroot@1988364556ea:/app# sleep 55; tail -11 var/build.log; python3 /tmp/check-index-prefix.py
+[?2004lsupervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=693 budget=10s grace=5s
+2026-11-22 16:22:51,064 reindex.worker INFO starting after id 7061 (4230/5739 docs done)
+2026-11-22 16:22:57,656 reindex.worker INFO progress: last_id=7882 docs=4730/5739 (76 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:23:01,031 reindex.worker INFO stopped safely: last_id=8311 docs=4996/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+Verified 4996/5739 exact rows; complete=False
+[?2004hroot@1988364556ea:/app# sleep 55; tail -8 var/build.log; date
+[?2004l2026-11-22 16:22:57,656 reindex.worker INFO progress: last_id=7882 docs=4730/5739 (76 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:23:01,031 reindex.worker INFO stopped safely: last_id=8311 docs=4996/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=718 budget=10s grace=5s
+2026-11-22 16:24:31,083 reindex.worker INFO starting after id 8311 (4996/5739 docs done)
+Sun Nov 22 16:24:36 UTC 2026
+[?2004hroot@1988364556ea:/app# sleep 45; tail -14 var/build.log; ./jobs status; python3 /tmp/check-index-prefix.py
+[?2004l[1]+  Done                    bash /tmp/finish-reindex.sh >> var/build.log 2>&1
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=693 budget=10s grace=5s
+2026-11-22 16:22:51,064 reindex.worker INFO starting after id 7061 (4230/5739 docs done)
+2026-11-22 16:22:57,656 reindex.worker INFO progress: last_id=7882 docs=4730/5739 (76 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:23:01,031 reindex.worker INFO stopped safely: last_id=8311 docs=4996/5739
+supervise: reindex stopped after 10.0s (rc=75)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=718 budget=10s grace=5s
+2026-11-22 16:24:31,083 reindex.worker INFO starting after id 8311 (4996/5739 docs done)
+2026-11-22 16:24:37,567 reindex.worker INFO progress: last_id=9138 docs=5496/5739 (77 docs/s)
+2026-11-22 16:24:40,941 reindex.worker INFO reindex complete: 5739 docs
+supervise: reindex finished after 9.9s (rc=0)
+checkpoint : {'last_id': 9555, 'docs': 5739, 'complete': True, 'shards': {'shard-00000.jsonl': 256239, 'shard-00001.jsonl': 568209, 'shard-00002.jsonl': 130866, 'shard-00003.jsonl': 576819, 'shard-00004.jsonl': 576267, 'shard-00005.jsonl': 580171, 'shard-00006.jsonl': 580967, 'shard-00007.jsonl': 592415, 'shard-00008.jsonl': 574852}}
+source     : 5739 live docs
+index      : 5739 rows, 5739 unique ids (100.0% of source)
+Verified 5739/5739 exact rows; complete=True
+[?2004hroot@1988364556ea:/app# 

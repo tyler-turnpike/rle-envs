@@ -1,0 +1,69 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 5.546s
+
+OK
+supervise: reindex started pid=40 budget=10s grace=5s
+2026-11-22 15:55:46,875 reindex.worker INFO no checkpoint: rebuilding index from scratch
+2026-11-22 15:55:46,877 reindex.worker INFO starting after id 0 (0/5739 docs done)
+2026-11-22 15:55:53,816 reindex.worker INFO progress: last_id=841 docs=500/5739 (72 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 15:55:57,123 reindex.worker INFO stop requested: checkpointed at id 1254 (750/5739 docs)
+supervise: reindex stopped after 10.3s (rc=0)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=43 budget=10s grace=5s
+2026-11-22 15:57:27,192 reindex.worker INFO starting after id 1254 (750/5739 docs done)
+2026-11-22 15:57:34,031 reindex.worker INFO progress: last_id=2037 docs=1250/5739 (73 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 15:57:37,355 reindex.worker INFO stop requested: checkpointed at id 2445 (1500/5739 docs)
+supervise: reindex stopped after 10.2s (rc=0)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=46 budget=10s grace=5s
+2026-11-22 15:59:07,411 reindex.worker INFO starting after id 2445 (1500/5739 docs done)
+2026-11-22 15:59:14,202 reindex.worker INFO progress: last_id=3274 docs=2000/5739 (74 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 15:59:17,484 reindex.worker INFO stop requested: checkpointed at id 3688 (2250/5739 docs)
+supervise: reindex stopped after 10.2s (rc=0)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=49 budget=10s grace=5s
+2026-11-22 16:00:47,574 reindex.worker INFO starting after id 3688 (2250/5739 docs done)
+2026-11-22 16:00:54,399 reindex.worker INFO progress: last_id=4529 docs=2750/5739 (73 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:00:57,574 reindex.worker INFO stop requested: checkpointed at id 4950 (3000/5739 docs)
+supervise: reindex stopped after 10.1s (rc=0)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=52 budget=10s grace=5s
+2026-11-22 16:02:27,641 reindex.worker INFO starting after id 4950 (3000/5739 docs done)
+2026-11-22 16:02:34,507 reindex.worker INFO progress: last_id=5799 docs=3500/5739 (73 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:02:37,615 reindex.worker INFO stop requested: checkpointed at id 6238 (3750/5739 docs)
+supervise: reindex stopped after 10.0s (rc=0)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=55 budget=10s grace=5s
+2026-11-22 16:04:07,678 reindex.worker INFO starting after id 6238 (3750/5739 docs done)
+2026-11-22 16:04:14,413 reindex.worker INFO progress: last_id=7095 docs=4250/5739 (74 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:04:18,009 reindex.worker INFO stop requested: checkpointed at id 7547 (4525/5739 docs)
+supervise: reindex stopped after 10.4s (rc=0)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=58 budget=10s grace=5s
+2026-11-22 16:05:48,103 reindex.worker INFO starting after id 7547 (4525/5739 docs done)
+2026-11-22 16:05:54,616 reindex.worker INFO progress: last_id=8357 docs=5025/5739 (77 docs/s)
+supervise: budget of 10s reached, sending SIGTERM
+2026-11-22 16:05:58,196 reindex.worker INFO stop requested: checkpointed at id 8802 (5300/5739 docs)
+supervise: reindex stopped after 10.2s (rc=0)
+supervise: reindex incomplete; run it again to continue
+supervise: previous reindex run ended 0s ago, cooldown is 90s: starting in 90s
+supervise: reindex started pid=61 budget=10s grace=5s
+2026-11-22 16:07:28,253 reindex.worker INFO starting after id 8802 (5300/5739 docs done)
+2026-11-22 16:07:34,327 reindex.worker INFO reindex complete: 5739 docs
+supervise: reindex finished after 6.1s (rc=0)
+checkpoint : {'last_id': 9555, 'docs': 5739, 'complete': True}
+source     : 5739 live docs
+index      : 5739 rows, 5739 unique ids (100.0% of source)

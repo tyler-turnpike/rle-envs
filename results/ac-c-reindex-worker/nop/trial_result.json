@@ -1,0 +1,124 @@
+{
+    "schema_version": 1,
+    "id": "7831c85f-08bf-4eb8-9c36-026fe749fbbd",
+    "task_name": "rle/ac-c-reindex-worker",
+    "trial_name": "ac-c-reindex-worker__rEP5Mog",
+    "trial_uri": "file:///home/user/rle-assignment/jobs/ac-c-reindex-worker/nop/run/ac-c-reindex-worker__rEP5Mog",
+    "task_id": {
+        "path": "/home/user/rle-assignment/environments/ac-c-reindex-worker"
+    },
+    "source": "environments",
+    "task_checksum": "8920ccc7f62e4ef9dcf9dc9e175c5359a9e2c021533226148038290ef02ce736",
+    "config": {
+        "schema_version": 1,
+        "task": {
+            "path": "/home/user/rle-assignment/environments/ac-c-reindex-worker",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "environments"
+        },
+        "trial_name": "ac-c-reindex-worker__rEP5Mog",
+        "trials_dir": "/home/user/rle-assignment/jobs/ac-c-reindex-worker/nop/run",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "nop",
+            "import_path": null,
+            "model_name": null,
+            "base_url": null,
+            "model_api_key_name": null,
+            "model_api_format": null,
+            "skip_model_parsing": false,
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "stream": false,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "disable": false
+        },
+        "override_error_policy": {},
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "6b8ad4f0-287f-4b41-920e-b6f484315ab3",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "nop",
+        "version": "1.0.0",
+        "model_info": null
+    },
+    "agent_result": {
+        "n_input_tokens": null,
+        "n_cache_tokens": null,
+        "n_output_tokens": null,
+        "cost_usd": null,
+        "model_usage": null,
+        "rollout_details": null,
+        "metadata": null
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-11-22T15:55:45.162042Z",
+    "finished_at": "2026-11-22T15:57:58.841439Z",
+    "environment_setup": {
+        "started_at": "2026-11-22T15:55:45.185194Z",
+        "finished_at": "2026-11-22T15:55:49.602292Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-11-22T15:55:49.602361Z",
+        "finished_at": "2026-11-22T15:55:49.602435Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-11-22T15:55:49.602530Z",
+        "finished_at": "2026-11-22T15:55:49.603318Z"
+    },
+    "verifier": {
+        "started_at": "2026-11-22T15:55:49.867334Z",
+        "finished_at": "2026-11-22T15:57:48.373772Z"
+    },
+    "step_results": null,
+    "reward_valid": true
+}
